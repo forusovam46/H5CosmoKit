@@ -19,7 +19,7 @@ with open("requirements.txt", "r") as fp:
 setuptools.setup(
     name="H5CosmoKit",
     version=version,
-    author="forusovam46",
+    author="Magdalena Forusova",
     author_email="forusova@gmail.com",
     description="A Python package for analyzing cosmological simulation output",
     long_description=long_description,
@@ -41,8 +41,9 @@ setuptools.setup(
             "coverage",
         ],
         "docs": [
-            "sphinx",
-            "readthedocs-sphinx-ext",
+            "sphinx-book-theme",
+            "myst-nb",
+            "ipython",
         ],
     },
     # Include any package data in your MANIFEST.in file, or specify them here
