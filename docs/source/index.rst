@@ -10,7 +10,8 @@ Welcome to H5CosmoKit's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   example.md
+   H5CosmoKit
+   test
 
 Indices and tables
 ==================
