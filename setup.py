@@ -41,7 +41,8 @@ setuptools.setup(
             "coverage",
         ],
         "docs": [
-            "sphinx-book-theme",
+            'sphinx',
+            'sphinx_rtd_theme',
             "myst-nb",
             "ipython",
         ],
