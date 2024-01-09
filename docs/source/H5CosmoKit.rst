@@ -1,9 +1,7 @@
 .. _cosmokit:
 
-H5CosmoKit
+Methods description 
 =====================
-
-some text.
 
 .. automodule:: H5CosmoKit
    :members:

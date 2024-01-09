@@ -11,13 +11,12 @@ kernelspec:
   name: python3
 ---
 
-# Visualisation
-
-+++
+# Tutorial & Visualisation
 
 Test `matplotlib` 
 
 ```{code-cell}
+#just testing example
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -27,4 +26,8 @@ y = np.random.normal(0, 1, 1000)
 plt.plot(x,y, ".")
 ```
 
-## whatever
+## Density
+## Temperature
+## Soundspeed
+## Phase diagrams
+## Power Spectra
