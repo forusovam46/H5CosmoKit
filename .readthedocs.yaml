@@ -24,5 +24,3 @@ python:
       path: .
       extra_requirements:
         - docs
-    - method: pip
-      name: sphinx_rtd_theme  # Directly install sphinx-book-theme
