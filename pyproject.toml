@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "H5CosmoKit"
+version = "1.0.0"
+authors = [
+    { name="Magdalena Forusova", email="" },
+]
+description = "A package for mathematical sequences."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy >=1.23",
+]
+
+[project.urls]
+Homepage = "https://github.com/prashjet/pysequence"
