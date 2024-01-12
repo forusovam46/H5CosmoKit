@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools==68.2.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "H5CosmoKit"
+version = "1.0.0"
+authors = [
+    { name = "Magdalena Forusova", email = "forusova@gmail.com" },
+]
+description = "A package for mathematical sequences."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy >=1.23",
+    "h5py >=3.7",
+    "matplotlib >=3.5",
+    "scipy >=1.9"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/forusovam46/H5CosmoKit"
+
+[project.optional-dependencies]
+testing = [
+    "pytest",
+    "coverage",
+]
+docs = [
+    "sphinx_rtd_theme",
+    "myst-nb",
+    "ipython",
+]
+
+[tool.setuptools]
+package-data = { "H5CosmoKit" = ["data/*"] }
