@@ -1,1 +1,1 @@
-from . import H5CosmoKit, analysis
+from . import H5CosmoKit
