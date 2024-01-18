@@ -3,10 +3,36 @@ from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import requests
 from scipy.interpolate import NearestNDInterpolator
 import sys
 
 ###############################################################################################
+
+def download_file(url, local_filename):
+    """
+    Downloads a file from a specified URL and saves it to a local path.
+
+    This function retrieves a file from the given URL and writes it to a local file, 
+    handling it in chunks to manage memory efficiently.
+
+    Args:
+        url (str): The URL of the file to download.
+        local_filename (str): The local path (including filename) where the file 
+                              will be saved.
+
+    Returns:
+        str: The path to the downloaded file.
+
+    Raises:
+        HTTPError: An error occurs from the HTTP request like 404, 500, etc.
+    """
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+    return local_filename
 
 def interpolate_quantity(pos_g, quantity_g, boxSize):
     """

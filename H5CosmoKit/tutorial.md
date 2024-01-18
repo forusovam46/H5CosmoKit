@@ -13,20 +13,37 @@ kernelspec:
 
 # Tutorial & Visualisation
 
-Test `matplotlib` 
+Import modules:
 
 ```{code-cell}
+import H5CosmoKit
+import h5py
+from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
-import h5py
+import os
 from scipy.interpolate import NearestNDInterpolator
-from matplotlib.colors import LogNorm
 ```
 
 ## Get the data
 
-The output data is normally organised into 34 snapshots. Download e.g. snap_010 (z = 2.00), snap_018 (z = 1.05) and snap_033 (z = 0.00) from [Flatiron Institute](https://users.flatironinstitute.org/~camels/Sims/IllustrisTNG/CV/CV_0/). If you use your own simulations output, use the following System of units (normally defined in param.txt):
+The output data is normally organised into 34 snapshots. You can download e.g. snap_010 (z = 2.00), snap_018 (z = 1.05) and snap_033 (z = 0.00) directly within this notebook.
 
+```{code-cell}
+import requests
+
+# URLs of the data files
+urls =  ["https://users.flatironinstitute.org/\~camels/Sims/IllustrisTNG/CV/CV_0/snap_010.hdf5"] # extend the list as needed
+
+# Local paths to save files
+local_files = ["snap_010.hdf5"]
+
+# Download files
+for url, local_file in zip(urls, local_files):
+    H5CosmoKit.download_file(url, local_file)
+
+```
+ If you use your own simulations output, use the following System of units (normally defined in param.txt) for correct output:
 ```
 %---- System of units in CAMELS
 
@@ -36,17 +53,11 @@ UnitVelocity_in_cm_per_s  1e5            %  1 km/sec
 ```
 ## Density & Temperature
 
-```{code-cell}
-import h5py
-from matplotlib.colors import LogNorm
-import matplotlib.pyplot as plt
-import numpy as np
-import os
-from scipy.interpolate import NearestNDInterpolator
-import H5CosmoKit
+Now that we have the data, we can use the `H5CosmoKit` package to visualize density and temperature.
 
+```{code-cell}
 # Example usage
-'../camelsdata'
+path = '.'  # Path to the snaps
 snapshot_numbers = [10]
 
 H5CosmoKit.Preview(path, snapshot_numbers, 'rho_g')

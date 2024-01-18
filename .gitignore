@@ -160,5 +160,5 @@ cython_debug/
 #.idea/
 
 # plots
-H5CosmoKit/camelsdata/plots/
+H5CosmoKit/camelsdata/
 tutorial_jupyter.ipynb
