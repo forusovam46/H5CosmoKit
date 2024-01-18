@@ -159,6 +159,10 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# plots
+# plots & build html
+docs/source/jupyter_execute
+docs/source/plots
+docs/source/_build
+docs/source/*.hdf5
 H5CosmoKit/camelsdata/
 tutorial_jupyter.ipynb

@@ -43,3 +43,10 @@ html_favicon = "_static/favicon.png"
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../../H5CosmoKit/'))
+
+# -- MyST-NB Configuration ---------------------------------------------------
+
+# Execution timeout for notebooks (in seconds)
+# Set a high value for long-running notebooks
+nb_execution_timeout = 900  # Example: 900 seconds (15 minutes)
+
