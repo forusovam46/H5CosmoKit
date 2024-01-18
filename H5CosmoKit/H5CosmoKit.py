@@ -1,13 +1,39 @@
+import h5py
+from matplotlib.colors import LogNorm
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+from scipy.interpolate import NearestNDInterpolator
+import sys
+
+###############################################################################################
+
+def interpolate_quantity(pos_g, quantity_g, boxSize):
+    """
+    Interpolates snapshot quantity onto a grid.
+
+    Args:
+        pos_g (numpy.ndarray): Particle coordinates in Mpch^{-1}.
+        quantity_g (numpy.ndarray): Particle quantity to be interpolated.
+        boxSize (float): Box size in Mpch^{-1}.
+
+    Returns:
+        scipy.interpolate.NearestNDInterpolator: Interpolation function.
+    """
+    pos = np.fmod(pos_g, boxSize)
+    interp = NearestNDInterpolator(pos, quantity_g, tree_options={'boxsize': boxSize})
+    return interp
+
 def Pk_suffix(ptype):
     """
     Maps a particle type to its corresponding label.
-    
+
     Args:
         ptype (list): Particle type identifier(s), expected values are [0], [1], [4], [5], or [0,1,4,5].
-    
+
     Returns:
         str: Label of the particle type ('g' for gas, 'c' for cold dark matter, 's' for stars, 'bh' for black holes, 'm' for all combined).
-    
+
     Raises:
         Exception: If no label is found for the provided ptype.
     """
@@ -18,59 +44,122 @@ def Pk_suffix(ptype):
     elif ptype == [0, 1, 4, 5]:   return 'm'
     else:   raise Exception('No label found for ptype')
 
-# # Test the function when the script is run directly
-# if __name__ == '__main__':
-#     test_ptypes = [[0], [1], [4], [5], [0, 1, 4, 5]]
-#     for ptype in test_ptypes:
-#         print(f"Particle type {ptype} is labeled as '{Pk_suffix(ptype)}'")
-
-import numpy as np
-
-def even_numbers(n):
-    """Return a list of all even numbers up to n
+def plot_snapshot(ax, grid_quantity, boxSize, title, quantity):
     """
-    result = []
-    a = 2
-    while a < n:
-        result.append(a)
-        a = a+2
-    return result
+    Plots a snapshot quantity grid.
 
-def fibonacci_numbers(n):
-    """Return a list of all Fibonnaci numbers up to n
+    Args:
+        ax (matplotlib.axes.Axes): The matplotlib axis to plot on.
+        grid_quantity (numpy.ndarray): Grid of snapshot quantity.
+        boxSize (float): Box size in Mpch^{-1}.
+        title (str): Title for the plot.
+        quantity (str): Quantity name (e.g., 'rho_g' or 'temperature').
+
+    Returns:
+        matplotlib.image.AxesImage: The plotted image.
     """
-    result = []
-    a, b = 1, 1
-    while a < n:
-        result.append(a)
-        a, b = b, a+b
-    return result
 
-def prime_numbers(n):
-    """Return a list of all prime numbers up to n
+    cmap = plt.cm.get_cmap('Spectral').reversed() if quantity == 'rho_g' else plt.cm.get_cmap('hot')
+
+    im = ax.imshow(grid_quantity[:, :, 128], extent=[0, boxSize, 0, boxSize], origin='lower', norm=LogNorm(), cmap=cmap)
+    ax.axis('equal')
+    ax.set_xlabel(r'$x \:[Mpc/h$]')
+    ax.set_ylabel(r'$y \:[Mpc/h$]')
+    ax.set_title(title)
+    return im
+
+def read_snapshot_CAMELS(snapshot_path):
     """
-    integers = np.linspace(1, n, n, dtype=int)
-    seive = np.array([True for i in range(n)])
-    for i in range(2, n):
-        seive[i+i-1::i] = False
-    result = integers[seive]
-    result = list(result[1:])
-    return result
+    Reads snapshot quantity from a CAMELS quantityset HDF5 file.
 
-def get_sequence(name):
-    """Return the appropriate sequence function given a string name
+    Args:
+        snapshot_path (str): The path to the HDF5 snapshot file.
+
+    Returns:
+        tuple: A tuple containing:
+            - boxSize (float): Box size in Mpch^{-1}.
+            - redshift (float): Redshift of the snapshot.
+            - pos_g (numpy.ndarray): Particle coordinates in Mpch^{-1}.
+            - rho_g (numpy.ndarray): Particle density in (Msun/h)/(ckpc/h)^3.
+            - U (numpy.ndarray): Particle internal energy in (km/s)^2.
+            - ne (numpy.ndarray): Electron abundance.
     """
-    if name=='even':
-        return even_numbers
-    elif name=='fibonacci':
-        return fibonacci_numbers
-    elif name=='prime':
-        return prime_numbers
-    else:
-        raise ValueError('name should be one of [even, fibonacci, prime]')
+    with h5py.File(snapshot_path, 'r') as f:
+        boxSize = f['Header'].attrs[u'BoxSize'] / 1e3
+        redshift = f['Header'].attrs[u'Redshift']
+        pos_g = f['PartType0/Coordinates'][:] / 1e3 
+        pos_g = pos_g.astype(np.float32)
+        rho_g = f['PartType0/Density'][:] * 1e10 
+        U = f['PartType0/InternalEnergy'][:]
+        ne = f['PartType0/ElectronAbundance'][:]
+        np.trim_zeros(rho_g)
+    return boxSize, redshift, pos_g, rho_g, U, ne
 
-if __name__ == "__main__":
-    n = 25
-    for sequence_name in ['even', 'fibonacci', 'prime']:
-        sequence_func = get_sequence(sequence_name)
-        print(f'{sequence_name} numbers below {n}: {sequence_func(n)}')
+def Preview(path, snapshot_numbers, quantity):
+    """
+    Creates a plot of snapshot quantity from multiple snapshot files.
+
+    Args:
+        path (str): The base path containing the snapshot files.
+        snapshot_numbers (list of int): List of snapshot numbers to plot.
+        quantity (str): Quantity name (e.g., 'rho_g' or 'temperature').
+
+    """
+    snapshot_paths = [os.path.join(path, f'snap_{number:03}.hdf5') for number in snapshot_numbers]
+    fig, axes = plt.subplots(1, len(snapshot_numbers), figsize=(7 * len(snapshot_numbers), 5))
+    if len(snapshot_numbers) == 1:
+        axes = [axes]
+    fig.suptitle(path)
+
+    first_time = True
+    for snapshot_path, ax in zip(snapshot_paths, axes):
+        boxSize, redshift, pos_g, quantity_g, U, ne = read_snapshot_CAMELS(snapshot_path)
+        interp_quantity = interpolate_quantity(pos_g, quantity_g, boxSize)
+        xx = np.linspace(0, boxSize, 256, endpoint=False)
+        grid_x, grid_y, grid_z = np.meshgrid(xx, xx, xx)
+        grid_quantity = interp_quantity((grid_x, grid_y, grid_z))
+        title = f'z={round(redshift)}'
+        im = plot_snapshot(ax, grid_quantity, boxSize, title, quantity)
+        if first_time:
+            f = im
+            first_time = False
+        cbar = fig.colorbar(f, ax=ax, label=f'${quantity} \:[M_\odot h^{-1}/(kpc\,h^{-1})^3$]')
+
+    save_plot(fig, path, quantity)
+
+
+def save_plot(fig, path, quantity):
+    """
+    Saves the figure to a file with an appropriate filename.
+
+    Args:
+        fig (matplotlib.figure.Figure): The figure to be saved.
+        path (str): The base path where the plot will be saved.
+        quantity (str): Quantity name (e.g., 'rho_g' or 'temperature').
+    """
+    path_last_parts = os.path.normpath(path).split(os.path.sep)[-2:]
+    filename = "_".join(path_last_parts) + f'_{quantity}.png'
+    plots_dir = os.path.join(path, 'plots')
+    
+    if not os.path.exists(plots_dir):
+        os.makedirs(plots_dir)
+
+    file_path = os.path.join(plots_dir, filename)
+    fig.savefig(file_path)
+    plt.show()
+
+###############################################################################################
+
+if __name__ == '__main__':
+    # Check if the correct number of arguments is provided
+    if len(sys.argv) != 4:
+        print("Usage: python H5CosmoKit.py <path> <snapshot_numbers> <quantity>")
+        sys.exit(1)
+
+    # Extract arguments
+    path = sys.argv[1]
+    snapshot_numbers = [int(num) for num in sys.argv[2].split(',')]
+    quantity = sys.argv[3]
+
+    # Call the Preview function
+    Preview(path, snapshot_numbers, quantity)

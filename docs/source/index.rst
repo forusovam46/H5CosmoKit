@@ -24,6 +24,15 @@ and my final project in a seminar `oss4astro <https://github.com/prashjet/oss4as
 It is being actively developed in a public 
 `repository on GitHub <https://github.com/forusovam46/H5CosmoKit.git>`_.
 
+Installation
+======================================
+
+Install with pip
+`pip install H5CosmoKit`
+or clone the repository and install in editable mode
+`cd H5CosmoKit` and
+`pip install -e .`
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:

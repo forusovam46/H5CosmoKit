@@ -37,4 +37,4 @@ docs = [
 ]
 
 [tool.setuptools]
-package-data = { "H5CosmoKit" = ["data/*"] }
+package-data = { "H5CosmoKit" = ["camelsdata /*"] }

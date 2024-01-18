@@ -1,4 +1,6 @@
-# H5CosmoKit
+<p align="center">
+  <img width="340" src="https://github.com/forusovam46/H5CosmoKit/blob/main/docs/source/_static/logo.png">
+</p>
 
 (come back later still in making)
 
@@ -13,6 +15,14 @@ This toolkit allows you to easily handle `HDF5` files such as [data](https://use
 and my final project in a seminar [oss4astro](https://github.com/prashjet/oss4astro) (Open Source Software Development for Astronomy) led by Prashin Jethwa, PhD.
 
 Read the full documentation at [h5cosmokit.readthedocs.io](https://h5cosmokit.readthedocs.io/).
+
+## Installation
+
+Install with pip
+`pip install H5CosmoKit`
+or clone the repository and install in editable mode
+`cd H5CosmoKit` and
+`pip install -e .`
 
 ## Acknowledgments
 
