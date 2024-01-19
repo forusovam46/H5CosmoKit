@@ -16,8 +16,6 @@ kernelspec:
 Import modules:
 
 ```{code-cell}
-import sys, os
-sys.path.append(os.path.abspath("../../H5CosmoKit/"))
 import H5CosmoKit
 ```
 
