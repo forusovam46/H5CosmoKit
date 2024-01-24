@@ -115,13 +115,13 @@ def read_snapshot_CAMELS(snapshot_path):
         redshift = f['Header'].attrs[u'Redshift']
         pos_g = f['PartType0/Coordinates'][:] / 1e3 
         pos_g = pos_g.astype(np.float32)
-        rho_g = f['PartType0/Density'][:] * 1e10 
+        rho_g = f['PartType0/Density'][:] * 1e10
         U = f['PartType0/InternalEnergy'][:]
         ne = f['PartType0/ElectronAbundance'][:]
         np.trim_zeros(rho_g)
     return boxSize, redshift, pos_g, rho_g, U, ne
 
-def Preview(path, snapshot_numbers, quantity):
+def preview(path, snapshot_numbers, quantity):
     """
     Creates a plot of snapshot quantity from multiple snapshot files.
 
@@ -129,7 +129,6 @@ def Preview(path, snapshot_numbers, quantity):
         path (str): The base path containing the snapshot files.
         snapshot_numbers (list of int): List of snapshot numbers to plot.
         quantity (str): Quantity name (e.g., 'rho_g' or 'temperature').
-
     """
     snapshot_paths = [os.path.join(path, f'snap_{number:03}.hdf5') for number in snapshot_numbers]
     fig, axes = plt.subplots(1, len(snapshot_numbers), figsize=(7 * len(snapshot_numbers), 5))
@@ -139,20 +138,29 @@ def Preview(path, snapshot_numbers, quantity):
 
     first_time = True
     for snapshot_path, ax in zip(snapshot_paths, axes):
-        boxSize, redshift, pos_g, quantity_g, U, ne = read_snapshot_CAMELS(snapshot_path)
+        boxSize, redshift, pos_g, rho_g, U, ne = read_snapshot_CAMELS(snapshot_path)
+
+        if quantity == 'temperature':
+            T = temperature(U, ne)  # Calculate temperature
+            quantity_g = T
+            colorbar_label = "T [K]"  # Label for temperature
+        else:  # Assuming 'rho_g' or any other quantity uses rho_g
+            quantity_g = rho_g
+            colorbar_label = r'$\rho_g \: [\mathrm{M_\odot/h/(ckpc/h)^3}]$'  # Label for density
+
         interp_quantity = interpolate_quantity(pos_g, quantity_g, boxSize)
         xx = np.linspace(0, boxSize, 256, endpoint=False)
         grid_x, grid_y, grid_z = np.meshgrid(xx, xx, xx)
         grid_quantity = interp_quantity((grid_x, grid_y, grid_z))
         title = f'z={round(redshift)}'
         im = plot_snapshot(ax, grid_quantity, boxSize, title, quantity)
+
         if first_time:
             f = im
             first_time = False
-        cbar = fig.colorbar(f, ax=ax, label=f'${quantity} \:[M_\odot h^{-1}/(kpc\,h^{-1})^3$]')
+        cbar = fig.colorbar(f, ax=ax, label=colorbar_label)
 
     save_plot(fig, path, quantity)
-
 
 def save_plot(fig, path, quantity):
     """
@@ -174,6 +182,29 @@ def save_plot(fig, path, quantity):
     fig.savefig(file_path)
     plt.show()
 
+def temperature(U, ne):
+    """
+    Computes the temperature of particles in a snapshot.
+
+    This function calculates the temperature of particles in a snapshot based on their internal energy,
+    electron abundance, and the helium mass fraction. It uses constants for the Boltzmann constant
+    and proton mass.
+
+    Args:
+        U (numpy.ndarray): Particle internal energy in (km/s)^2.
+        ne (numpy.ndarray): Electron abundance.
+
+    Returns:
+        numpy.ndarray: An array of temperatures for each particle in the snapshot.
+    """
+    BOLTZMANN = 1.38065e-16  # erg/K - NIST 2010
+    PROTONMASS = 1.67262178e-24  # gram - NIST 2010
+
+    yhelium = 0.0789  # Helium mass fraction
+    T = U * (1.0 + 4.0 * yhelium) / (1.0 + yhelium + ne) * 1e10 * (2.0 / 3.0)
+    T *= (PROTONMASS / BOLTZMANN)  # Convert to Kelvin
+    return T
+
 ###############################################################################################
 
 if __name__ == '__main__':
@@ -187,5 +218,5 @@ if __name__ == '__main__':
     snapshot_numbers = [int(num) for num in sys.argv[2].split(',')]
     quantity = sys.argv[3]
 
-    # Call the Preview function
-    Preview(path, snapshot_numbers, quantity)
+    # Call the preview function
+    preview(path, snapshot_numbers, quantity)

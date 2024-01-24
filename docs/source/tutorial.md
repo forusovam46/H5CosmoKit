@@ -13,28 +13,25 @@ kernelspec:
 
 # Tutorial & Visualisation
 
-Import modules:
+## Get the data
+
+Import the module:
 
 ```{code-cell}
 import H5CosmoKit
 ```
 
-## Get the data
-
-The output data is normally organised into 34 snapshots. You can download e.g. snap_010 (z = 2.00), snap_018 (z = 1.05) and snap_033 (z = 0.00) directly within this notebook.
+You can download e.g. snap_010 (z = 2.00), snap_018 (z = 1.05) and snap_033 (z = 0.00) directly within this notebook.
 
 ```{code-cell}
 import requests
-# URLs of the data files
 urls = ["https://users.flatironinstitute.org/~camels/Sims/IllustrisTNG/CV/CV_0/snap_010.hdf5"] # extend the list as needed
-# Local paths to save files
 local_files = ["snap_010.hdf5"]
 
-# Download files
 for url, local_file in zip(urls, local_files):
     H5CosmoKit.download_file(url, local_file)
 ```
-If you use your own simulations output, use the following System of units (normally defined in param.txt) for correct output:
+If you use your own simulations output, use the following System of units (normally defined in param.txt) for correct units in plots:
 ```
 %---- System of units in CAMELS
 
@@ -51,8 +48,8 @@ Now that we have the data, we can use the `H5CosmoKit` package to visualize dens
 path = '.'  # Path to the snaps
 snapshot_numbers = [10]
 
-H5CosmoKit.Preview(path, snapshot_numbers, 'rho_g')
-H5CosmoKit.Preview(path, snapshot_numbers, 'temperature')
+H5CosmoKit.preview(path, snapshot_numbers, 'rho_g')
+H5CosmoKit.preview(path, snapshot_numbers, 'temperature')
 ```
 
 ## Soundspeed

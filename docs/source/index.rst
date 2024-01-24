@@ -33,13 +33,6 @@ or clone the repository and install in editable mode
 `cd H5CosmoKit` and
 `pip install -e .`
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   tutorial
-   H5CosmoKit
-
 Acknowledgments
 ======================================
 
@@ -49,3 +42,10 @@ This project incorporates code snippets or concepts inspired by the following pr
 - `Pylians3 <https://github.com/franciscovillaescusa/Pylians3>`_: Licensed under the `MIT License <https://github.com/franciscovillaescusa/Pylians3/blob/master/LICENSE>`_.
 
 I am grateful to the authors of these projects for their contributions to the open-source community.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   tutorial
+   H5CosmoKit
