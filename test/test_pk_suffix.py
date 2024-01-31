@@ -1,5 +1,5 @@
-import numpy as np
 import pytest
+import numpy as np
 from H5CosmoKit import Pk_suffix
 
 def test_gas():

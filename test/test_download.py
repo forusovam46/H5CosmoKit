@@ -1,9 +1,8 @@
+import io
 import pytest
 import requests
 from unittest.mock import patch, mock_open
 from H5CosmoKit import download_file
-import io
-import requests
 from unittest.mock import patch, MagicMock
 
 def mock_requests_get(*args, **kwargs):
