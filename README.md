@@ -2,6 +2,10 @@
   <img width="340" src="https://github.com/forusovam46/H5CosmoKit/blob/main/docs/source/_static/logo.png">
 </p>
 
+![GitHub Actions Status](https://github.com/forusovam46/H5CosmoKit/actions/workflows/main.yml/badge.svg)
+[![codecov](https://codecov.io/gh/forusovam46/H5CosmoKit/branch/main/graph/badge.svg)](https://codecov.io/gh/forusovam46/H5CosmoKit)
+[![Documentation Status](https://readthedocs.org/projects/h5cosmokit/badge/?version=latest)](https://h5cosmokit.readthedocs.io/en/latest/?badge=latest)
+
 (come back later still in making)
 
 `H5CosmoKit` is a toolkit designed for handling simulation data output in `HDF5` format, 
