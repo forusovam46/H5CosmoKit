@@ -5,3 +5,4 @@ from .H5CosmoKit import plot_snapshot
 from .H5CosmoKit import preview
 from .H5CosmoKit import read_snapshot_CAMELS
 from .H5CosmoKit import save_plot
+from .H5CosmoKit import temperature
