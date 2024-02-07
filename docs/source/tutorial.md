@@ -55,7 +55,7 @@ Or preview the data in 3D.
 
 ```{code-cell}
 subset_size = 300000
-H5CosmoKit.preview_3d(path, snapshot_numbers, gas_density, subset_size)
+H5CosmoKit.preview_3d(path, snapshot_numbers, 'gas_density', subset_size)
 ```
 
 ```{code-cell}

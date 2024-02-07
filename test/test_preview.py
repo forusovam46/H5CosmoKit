@@ -29,7 +29,7 @@ class TestH5CosmoKit(unittest.TestCase):
         snapshot_numbers = [10]
 
         with patch('matplotlib.pyplot.show') as mock_show:
-            preview(directory_path, snapshot_numbers, 'rho_g')
+            preview(directory_path, snapshot_numbers, 'gas_density')
         
         mock_show.assert_called_once()
 
@@ -39,7 +39,7 @@ class TestH5CosmoKit(unittest.TestCase):
         snapshot_numbers = [10]
 
         with patch('matplotlib.pyplot.show') as mock_show:
-            preview(directory_path, snapshot_numbers, 'temperature')
+            preview(directory_path, snapshot_numbers, 'gas_temperature')
         
         mock_show.assert_called_once()
 
