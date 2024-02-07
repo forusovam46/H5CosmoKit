@@ -40,7 +40,7 @@ UnitVelocity_in_cm_per_s  1e5            %  1 km/sec
 ```
 ## Density & Temperature
 
-Now that we have the data, we can use the `H5CosmoKit` package to visualize density and temperature.
+Now that we have the data, we can use the `H5CosmoKit` package to visualize density and temperature simple with `preview()`.
 
 ```{code-cell}
 # Example usage
@@ -51,7 +51,7 @@ H5CosmoKit.preview(path, snapshot_numbers, 'gas_density')
 H5CosmoKit.preview(path, snapshot_numbers, 'gas_temperature')
 ```
 
-Or preview the data in 3D. Test1
+Or to `preview_3d` for interactive tree dimensional view.
 
 ```
 subset_size = 300000
@@ -67,35 +67,6 @@ H5CosmoKit.preview_3d(path, snapshot_numbers, 'gas_temperature', subset_size)
 - [View the 3D Temperature Plot](_static/Snapshot_33_at_z=0.00_gas_temperature.html)
 <iframe src="_static/Snapshot_33_at_z=0.00_gas_temperature.html" width="700" height="400"></iframe>
 
-from main Test2
-```
-subset_size = 300000
-H5CosmoKit.preview_3d(path, snapshot_numbers, 'gas_density', subset_size)
-```
-- [View the 3D Density Plot](Snapshot_33_at_z=0.00_gas_density.html)
-<iframe src="Snapshot_33_at_z=0.00_gas_density.html" width="700" height="400"></iframe>
-
-```
-subset_size = 150000
-H5CosmoKit.preview_3d(path, snapshot_numbers, 'gas_temperature', subset_size)
-```
-- [View the 3D Temperature Plot](Snapshot_33_at_z=0.00_gas_temperature.html)
-<iframe src="Snapshot_33_at_z=0.00_gas_temperature.html" width="700" height="400"></iframe>
-
-from github Test3
-```
-subset_size = 300000
-H5CosmoKit.preview_3d(path, snapshot_numbers, 'gas_density', subset_size)
-```
-- [View the 3D Density Plot](https://github.com/forusovam46/H5CosmoKit/blob/0d829101d6ec768e8b301a6136bc487602dc0d80/docs/source/_static/Snapshot_33_at_z%3D0.00_gas_density.html)
-<iframe src="Snapshot_33_at_z=0.00_gas_density.html" width="700" height="400"></iframe>
-
-```
-subset_size = 150000
-H5CosmoKit.preview_3d(path, snapshot_numbers, 'gas_temperature', subset_size)
-```
-- [View the 3D Temperature Plot](https://github.com/forusovam46/H5CosmoKit/blob/0d829101d6ec768e8b301a6136bc487602dc0d80/docs/source/_static/Snapshot_33_at_z%3D0.00_gas_temperature.html)
-<iframe src="Snapshot_33_at_z=0.00_gas_temperature.html" width="700" height="400"></iframe>
 
 ## Soundspeed
 ## Phase diagrams
