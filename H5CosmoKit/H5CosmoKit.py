@@ -167,7 +167,7 @@ def preview_3d(path, snapshot_numbers, quantity, subset_size):
         else:  # Assuming 'gas density'
             title = f'Snapshot {snapshot_number} at z={redshift:.2f}'
             quantity_g = rho_g
-            colorbar_title = 'Log Density $ [\M_{\odot}/h/(ckpc/h)^3})]$'  # Label for density
+            colorbar_title = 'Log(ρ<sub>g</sub>) [M☉/h/(ckpc/h)<sup>3</sup>]' # Label for density
             colormap = 'Spectral_r'
 
         # Create a 3D scatter plot
@@ -202,7 +202,8 @@ def preview_3d(path, snapshot_numbers, quantity, subset_size):
         fig.show()
 
         # Save Plotly figure as HTML file
-        fig.write_html(f"{title}{quantity}.html")
+        filename = f"{title}_{quantity}.html".replace(" ", "_")
+        fig.write_html(filename)
 
 def read_snapshot_CAMELS(snapshot_path):
     """
