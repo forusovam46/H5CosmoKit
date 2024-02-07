@@ -18,7 +18,6 @@ extensions = [
     'sphinx.ext.autodoc', # for reading your python files and automatically extract docstrings
     'sphinx_rtd_theme',
     'sphinx.ext.napoleon', # allows sphinx to understand google-style docstrings
-#    'sphinx_charts.charts', # for 3d plotly charts
     "myst_nb"
 ]
 
