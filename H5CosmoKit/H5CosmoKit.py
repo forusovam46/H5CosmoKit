@@ -3,6 +3,7 @@ from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import plotly.graph_objects as go
 import requests
 from scipy.interpolate import NearestNDInterpolator
 import sys
@@ -79,13 +80,13 @@ def plot_snapshot(ax, grid_quantity, boxSize, title, quantity):
         grid_quantity (numpy.ndarray): Grid of snapshot quantity.
         boxSize (float): Box size in Mpch^{-1}.
         title (str): Title for the plot.
-        quantity (str): Quantity name (e.g., 'rho_g' or 'temperature').
+        quantity (str): Quantity name (e.g., 'gas_density' or 'gas_temperature').
 
     Returns:
         matplotlib.image.AxesImage: The plotted image.
     """
 
-    cmap = plt.cm.get_cmap('Spectral').reversed() if quantity == 'rho_g' else plt.cm.get_cmap('hot')
+    cmap = plt.cm.get_cmap('Spectral').reversed() if quantity == 'gas_density' else plt.cm.get_cmap('hot')
 
     im = ax.imshow(grid_quantity[:, :, 128], extent=[0, boxSize, 0, boxSize], origin='lower', norm=LogNorm(), cmap=cmap)
     ax.axis('equal')
@@ -93,6 +94,115 @@ def plot_snapshot(ax, grid_quantity, boxSize, title, quantity):
     ax.set_ylabel(r'$y \:[Mpc/h$]')
     ax.set_title(title)
     return im
+
+def preview(path, snapshot_numbers, quantity):
+    """
+    Creates a plot of snapshot quantity from multiple snapshot files.
+
+    Args:
+        path (str): The base path containing the snapshot files.
+        snapshot_numbers (list of int): List of snapshot numbers to plot.
+        quantity (str): Quantity name (e.g., 'gas_density' or 'gas_temperature').
+    """
+    snapshot_paths = [os.path.join(path, f'snap_{number:03}.hdf5') for number in snapshot_numbers]
+    fig, axes = plt.subplots(1, len(snapshot_numbers), figsize=(7 * len(snapshot_numbers), 5))
+    if len(snapshot_numbers) == 1:
+        axes = [axes]
+    fig.suptitle(path)
+
+    first_time = True
+    for snapshot_path, ax in zip(snapshot_paths, axes):
+        boxSize, redshift, pos_g, rho_g, U, ne = read_snapshot_CAMELS(snapshot_path)
+
+        if quantity == 'gas_temperature':
+            T = temperature(U, ne)  # Calculate temperature
+            quantity_g = T
+            colorbar_label = "T [K]"  # Label for temperature
+        else:  # Assuming 'gas_density'
+            quantity_g = rho_g
+            colorbar_label = r'$\rho_g \: [\mathrm{M_\odot/h/(ckpc/h)^3}]$'  # Label for density
+
+        interp_quantity = interpolate_quantity(pos_g, quantity_g, boxSize)
+        xx = np.linspace(0, boxSize, 256, endpoint=False)
+        grid_x, grid_y, grid_z = np.meshgrid(xx, xx, xx)
+        grid_quantity = interp_quantity((grid_x, grid_y, grid_z))
+        title = f'z={round(redshift)}'
+        im = plot_snapshot(ax, grid_quantity, boxSize, title, quantity)
+
+        if first_time:
+            f = im
+            first_time = False
+        cbar = fig.colorbar(f, ax=ax, label=colorbar_label)
+
+    save_plot(fig, path, quantity)
+
+def preview_3d(path, snapshot_numbers, quantity, subset_size):
+    """
+    Creates an interactive 3D plot of snapshot quantity using Plotly and saves it as an HTML file.
+
+    Args:
+        path (str): The base path containing the snapshot files.
+        snapshot_numbers (list of int): List of snapshot numbers to plot.
+        quantity (str): Quantity name (e.g., 'rho_g' or 'temperature').
+        subset_size (int)> Size of randomly chosen points to be ploted to manage performance
+    """
+    if not snapshot_numbers:
+        print("No snapshot numbers provided.")
+        return
+
+    for snapshot_number in snapshot_numbers:
+        snapshot_path = os.path.join(path, f'snap_{snapshot_number:03}.hdf5')
+
+        # Read data from snapshot
+        boxSize, redshift, pos_g, rho_g, U, ne = read_snapshot_CAMELS(snapshot_path)
+
+        # Select a subset of points for plotting to manage performance
+        plot_subset = np.random.choice(len(pos_g), size=min(len(pos_g), subset_size), replace=False)
+
+        if quantity == 'gas_temperature':
+            title = f'Snapshot {snapshot_number} at z={redshift:.2f}'
+            quantity_g = temperature(U, ne)  # Calculate temperature
+            colorbar_title = "Temperature [K]"  # Label for temperature
+            colormap = 'Hot'
+        else:  # Assuming 'gas density'
+            title = f'Snapshot {snapshot_number} at z={redshift:.2f}'
+            quantity_g = rho_g
+            colorbar_title = 'Log Density $ [\M_{\odot}/h/(ckpc/h)^3})]$'  # Label for density
+            colormap = 'Spectral_r'
+
+        # Create a 3D scatter plot
+        fig = go.Figure(data=[go.Scatter3d(
+            x=pos_g[plot_subset, 0],
+            y=pos_g[plot_subset, 1],
+            z=pos_g[plot_subset, 2],
+            mode='markers',
+            marker=dict(
+                size=2,
+                color=np.log10(quantity_g[plot_subset]),  # Set color to log scale of quantity
+                colorscale=colormap,  # Choose a colormap
+                colorbar_title=colorbar_title,
+                opacity=0.1  # Set marker opacity
+            ),
+            name=title
+        )])
+
+        # Update plot layout with plotly_dark theme
+        fig.update_layout(
+            title="Snapshot Data",
+            scene=dict(
+                xaxis_title='X [Mpc/h]',
+                yaxis_title='Y [Mpc/h]',
+                zaxis_title='Z [Mpc/h]',
+            ),
+            margin=dict(r=0, b=0, l=0, t=0),
+            template="plotly_dark"  # Set plot theme to plotly_dark
+        )
+
+        # Show plot
+        fig.show()
+
+        # Save Plotly figure as HTML file
+        fig.write_html(f"{title}{quantity}.html")
 
 def read_snapshot_CAMELS(snapshot_path):
     """
@@ -121,47 +231,6 @@ def read_snapshot_CAMELS(snapshot_path):
         np.trim_zeros(rho_g)
     return boxSize, redshift, pos_g, rho_g, U, ne
 
-def preview(path, snapshot_numbers, quantity):
-    """
-    Creates a plot of snapshot quantity from multiple snapshot files.
-
-    Args:
-        path (str): The base path containing the snapshot files.
-        snapshot_numbers (list of int): List of snapshot numbers to plot.
-        quantity (str): Quantity name (e.g., 'rho_g' or 'temperature').
-    """
-    snapshot_paths = [os.path.join(path, f'snap_{number:03}.hdf5') for number in snapshot_numbers]
-    fig, axes = plt.subplots(1, len(snapshot_numbers), figsize=(7 * len(snapshot_numbers), 5))
-    if len(snapshot_numbers) == 1:
-        axes = [axes]
-    fig.suptitle(path)
-
-    first_time = True
-    for snapshot_path, ax in zip(snapshot_paths, axes):
-        boxSize, redshift, pos_g, rho_g, U, ne = read_snapshot_CAMELS(snapshot_path)
-
-        if quantity == 'temperature':
-            T = temperature(U, ne)  # Calculate temperature
-            quantity_g = T
-            colorbar_label = "T [K]"  # Label for temperature
-        else:  # Assuming 'rho_g' or any other quantity uses rho_g
-            quantity_g = rho_g
-            colorbar_label = r'$\rho_g \: [\mathrm{M_\odot/h/(ckpc/h)^3}]$'  # Label for density
-
-        interp_quantity = interpolate_quantity(pos_g, quantity_g, boxSize)
-        xx = np.linspace(0, boxSize, 256, endpoint=False)
-        grid_x, grid_y, grid_z = np.meshgrid(xx, xx, xx)
-        grid_quantity = interp_quantity((grid_x, grid_y, grid_z))
-        title = f'z={round(redshift)}'
-        im = plot_snapshot(ax, grid_quantity, boxSize, title, quantity)
-
-        if first_time:
-            f = im
-            first_time = False
-        cbar = fig.colorbar(f, ax=ax, label=colorbar_label)
-
-    save_plot(fig, path, quantity)
-
 def save_plot(fig, path, quantity):
     """
     Saves the figure to a file with an appropriate filename.
@@ -169,7 +238,7 @@ def save_plot(fig, path, quantity):
     Args:
         fig (matplotlib.figure.Figure): The figure to be saved.
         path (str): The base path where the plot will be saved.
-        quantity (str): Quantity name (e.g., 'rho_g' or 'temperature').
+        quantity (str): Quantity name (e.g., 'gas_density' or 'gas_temperature').
     """
     path_last_parts = os.path.normpath(path).split(os.path.sep)[-2:]
     filename = "_".join(path_last_parts) + f'_{quantity}.png'
