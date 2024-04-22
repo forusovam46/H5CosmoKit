@@ -226,7 +226,7 @@ def plot_soundspeed_distribution(path, snapshot_numbers, bw=0.7, x_limits=None, 
 
     # Process each snapshot
     for num in snapshot_numbers:
-        snapshot_path = os.path.join(path, f'snap_{num:03}.hdf5')
+        snapshot_path = os.path.join(path, f'snapshot_{num:03}.hdf5')
         boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path)
         
         if sample_size is not None:
@@ -304,7 +304,7 @@ def preview(path, snapshot_numbers, quantity, unit_scale='kpc'):
 
     first_time = True
     for ax, snapshot_number in zip(axes, snapshot_numbers):
-        snapshot_path = os.path.join(path, f'snap_{snapshot_number:03}.hdf5')
+        snapshot_path = os.path.join(path, f'snapshot_{snapshot_number:03}.hdf5')
 
         # Read data from snapshot
         boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path, unit_scale)
@@ -360,7 +360,7 @@ def preview_3d(path, snapshot_numbers, quantity, subset_size, unit_scale='kpc'):
 
     # Prepare the object
     for snapshot_number in snapshot_numbers:
-        snapshot_path = os.path.join(path, f'snap_{snapshot_number:03}.hdf5')
+        snapshot_path = os.path.join(path, f'snapshot_{snapshot_number:03}.hdf5')
 
         # Read data from snapshot
         boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path, unit_scale)

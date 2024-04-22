@@ -12,8 +12,8 @@ class TestH5CosmoKit(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.snapshot_url = "https://users.flatironinstitute.org/~camels/Sims/IllustrisTNG/CV/CV_0/snap_010.hdf5"
-        cls.local_snapshot_path = "test/snap_010.hdf5"  # Path where the test HDF5 file is saved
+        cls.snapshot_url = "https://users.flatironinstitute.org/~camels/Sims/IllustrisTNG/CV/CV_0/snapshot_090.hdf5"
+        cls.local_snapshot_path = "test/snapshot_090.hdf5"  # Path where the test HDF5 file is saved
 
         # Download the file if it doesn't exist
         if not os.path.exists(cls.local_snapshot_path):
