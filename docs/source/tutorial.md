@@ -18,7 +18,7 @@ kernelspec:
 Import the module:
 
 ```{code-cell}
-import H5CosmoKit
+import H5CosmoKit as ckit
 ```
 
 You can download e.g. snap_010 (z = 2.00), snap_018 (z = 1.05) and snap_033 (z = 0.00) directly within this notebook.
@@ -28,46 +28,50 @@ urls = ["https://users.flatironinstitute.org/~camels/Sims/IllustrisTNG/CV/CV_0/s
 local_files = ["snap_033.hdf5"]
 
 for url, local_file in zip(urls, local_files):
-    H5CosmoKit.download_file(url, local_file)
-```
-If you use your own simulations output, use the following System of units (normally defined in param.txt) for correct units in plots:
-```
-%---- System of units in CAMELS
-
-UnitLength_in_cm          3.085678e21    %  kpc
-UnitMass_in_g             1.989e43       %  1e10 solar masses
-UnitVelocity_in_cm_per_s  1e5            %  1 km/sec
+    ckit.download_file(url, local_file)
 ```
 ## Density & Temperature
 
 Now that we have the data, we can use the `H5CosmoKit` package to visualize density and temperature simple with `preview()`.
 
 ```{code-cell}
-# Example usage
-path = '.'  # Path to the snaps e.q. in windows r'C:\Users\<username>\...\snapfiles'
-snapshot_numbers = [33]
+path = '.'  # Path to the snaps
+snapshot_numbers = [33] # list of desired snapfile numbers
 
-H5CosmoKit.preview(path, snapshot_numbers, 'gas_density')
-H5CosmoKit.preview(path, snapshot_numbers, 'gas_temperature')
+ckit.preview(path, snapshot_numbers, 'gas_density')
+ckit.preview(path, snapshot_numbers, 'gas_temperature')
 ```
 
 Or to `preview_3d` for interactive tree dimensional view.
 
 ```
 subset_size = 300000
-H5CosmoKit.preview_3d(path, snapshot_numbers, 'gas_density', subset_size)
+ckit.preview_3d(path, snapshot_numbers, 'gas_density', subset_size)
 ```
 - [View the 3D Density Plot](_static/Snapshot_33_at_z=0.00_gas_density.html)
 <iframe src="_static/Snapshot_33_at_z=0.00_gas_density.html" width="700" height="400"></iframe>
 
 ```
 subset_size = 150000
-H5CosmoKit.preview_3d(path, snapshot_numbers, 'gas_temperature', subset_size)
+ckit.preview_3d(path, snapshot_numbers, 'gas_temperature', subset_size)
 ```
 - [View the 3D Temperature Plot](_static/Snapshot_33_at_z=0.00_gas_temperature.html)
 <iframe src="_static/Snapshot_33_at_z=0.00_gas_temperature.html" width="700" height="400"></iframe>
 
-
 ## Soundspeed
-## Phase diagrams
+
+```{code-cell}
+path = '.'
+snapshot_numbers = [33]
+ckit.plot_soundspeed_distribution(path, snapshot_numbers, bw=0.6, x_limits=(0, 300), sample_size=10000)
+```
+
 ## Power Spectra
+
+```{code-cell}
+f_snap = './snap_033.hdf5'
+snapshot_numbers = [33]
+ckit.power_ratio(f_snap)
+```
+
+## Phase diagrams
