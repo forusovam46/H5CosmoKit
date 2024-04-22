@@ -26,7 +26,7 @@ class TestH5CosmoKit(unittest.TestCase):
     def test_preview_rho_g(self):
         # Get the directory where the HDF5 file is located
         directory_path = os.path.dirname(self.local_snapshot_path)
-        snapshot_numbers = [10]
+        snapshot_numbers = [90]
 
         with patch('matplotlib.pyplot.show') as mock_show:
             preview(directory_path, snapshot_numbers, 'gas_density')
@@ -36,7 +36,7 @@ class TestH5CosmoKit(unittest.TestCase):
     def test_preview_temperature(self):
         # Get the directory where the HDF5 file is located
         directory_path = os.path.dirname(self.local_snapshot_path)
-        snapshot_numbers = [10]
+        snapshot_numbers = [90]
 
         with patch('matplotlib.pyplot.show') as mock_show:
             preview(directory_path, snapshot_numbers, 'gas_temperature')
