@@ -1,6 +1,9 @@
 h5py
 matplotlib
 numpy
-scipy
 plotly
-requests
+ptitprince
+Pylians
+Requests
+scipy
+seaborn
