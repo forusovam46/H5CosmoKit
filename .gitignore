@@ -167,3 +167,4 @@ docs/source/*.hdf5
 #docs/source/*.html
 docs/source/*.ipynb
 H5CosmoKit/camelsdata/
+.vs/

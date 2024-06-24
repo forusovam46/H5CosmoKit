@@ -8,6 +8,7 @@ from .H5CosmoKit import plot_power_spectrum_ratio
 from .H5CosmoKit import Pk_suffix
 from .H5CosmoKit import plot_snapshot
 from .H5CosmoKit import plot_soundspeed_distribution
+from .H5CosmoKit import plot_median_soundspeed_with_polynomial_fit
 from .H5CosmoKit import preview
 from .H5CosmoKit import preview_3d
 from .H5CosmoKit import read_snapshot

@@ -48,15 +48,14 @@ Or to `preview_3d` for interactive tree dimensional view.
 subset_size = 300000
 ckit.preview_3d(path, snapshot_numbers, 'gas_density', subset_size)
 ```
-- [View the 3D Density Plot](_static/Snapshot_90_at_z=0.00_gas_density.html)
 <iframe src="_static/Snapshot_90_at_z=0.00_gas_density.html" width="700" height="400"></iframe>
+- [View the 3D Density Plot](_static/Snapshot_90_at_z=0.00_gas_density.html)
 
 ```
 subset_size = 150000
 ckit.preview_3d(path, snapshot_numbers, 'gas_temperature', subset_size)
 ```
 - [View the 3D Temperature Plot](_static/Snapshot_90_at_z=0.00_gas_temperature.html)
-<iframe src="_static/Snapshot_90_at_z=0.00_gas_temperature.html" width="700" height="400"></iframe>
 
 ## Soundspeed
 
@@ -68,10 +67,11 @@ ckit.plot_soundspeed_distribution(path, snapshot_numbers, bw=0.6, x_limits=(0, 3
 
 ## Power Spectra
 
+As power spectra analysis uses Pylians, you might experience difficulties on machines other than Linux and Mac. For more details, visit the [Pylians documentation](https://pylians3.readthedocs.io/en/master/installation.html).
+
 ```{code-cell}
 f_snap = './snapshot_090.hdf5'
 snapshot_numbers = [90]
 ckit.power_ratio(f_snap)
-```
 
 ## Phase diagrams

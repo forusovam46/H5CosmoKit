@@ -10,6 +10,9 @@ import ptitprince as pt
 import requests
 from scipy.interpolate import NearestNDInterpolator
 import seaborn as sns
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
 import sys
 
 ###############################################################################################
@@ -197,36 +200,37 @@ def plot_snapshot(ax, grid_quantity, boxSize, title, quantity):
     ax.set_title(title)
     return im
 
-def plot_soundspeed_distribution(path, snapshot_numbers, bw=0.7, x_limits=None, sample_size=None):
+def plot_soundspeed_distribution(path, snapshot_numbers, snapshot_base_name ='snapshot', bw=1, x_limits=None, sample_size=None):
     """
-    Plots the distribution of sound speeds from multiple snapshot files.
+    Plots the distribution of sound speeds from multiple snapshot files as a raincload plot.
 
     Args:
         path (str): The base path containing the snapshot files.
         snapshot_numbers (list of int): List of snapshot numbers to plot.
-        bw (float): Bandwidth for the density estimation in the raincloud plot. Default is 0.6.
+        snapshot_base_name (str): Base name of the snapshot files (default: 'snapshot', 'snap'). Underscore is accounted for.
+        bw (float): Bandwidth for the density estimation in the raincloud plot. Default is 1.
         x_limits (tuple): X-axis limits for the plot. Default is None, which auto-scales.
         sample_size (int): Number of random samples to select from each snapshot. Default is None (use all data).
 
-    Example:
-        path = '/gpfs/data/fs72085/mfo/CAMELS/CV0_CAMELS_output/'
-        snapshot_numbers = [10, 18, 33]
-        plot_soundspeed_distribution(path, snapshot_numbers, bw=0.9, x_limits=(0, 300), sample_size=10000)
+    # Example usage
+    plot_soundspeed_distribution(
+        path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
+        snapshot_base_name='snapshot',
+        snapshot_numbers=[32, 44, 60, 90],
+        bw=1,
+        x_limits=(0, 300),
+        sample_size=50000
     """
-    def calc_soundSpeed(U):
-        gamma = 5/3  # Adiabatic index for monatomic ideal gas
-        Cs = np.sqrt(gamma * (gamma - 1.0) * U)  # Calculate sound speed
-        return Cs
-
     Cs_means = []
     all_soundspeeds = []
     soundspeed_lengths = []
     redshifts = []
     scale_factors = []
+    Cs_medians = []
 
     # Process each snapshot
     for num in snapshot_numbers:
-        snapshot_path = os.path.join(path, f'snapshot_{num:03}.hdf5')
+        snapshot_path = os.path.join(path, f"{snapshot_base_name}_{num:03}.hdf5")
         boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path)
         
         if sample_size is not None:
@@ -235,7 +239,9 @@ def plot_soundspeed_distribution(path, snapshot_numbers, bw=0.7, x_limits=None, 
 
         soundspeed = calc_soundSpeed(U)
         Cs_mean = np.mean(soundspeed)
+        Cs_median = np.median(soundspeed)
         Cs_means.append(Cs_mean)
+        Cs_medians.append(Cs_median)
         all_soundspeeds.extend(soundspeed)
         soundspeed_lengths.append(len(soundspeed))
         redshifts.append(round(redshift))
@@ -245,30 +251,129 @@ def plot_soundspeed_distribution(path, snapshot_numbers, bw=0.7, x_limits=None, 
     soundspeed_data = np.repeat(redshifts, soundspeed_lengths)
 
     # Create the raincloud plot
-    plt.figure(figsize=(10, 8))
-    ax = plt.gca()
+    fig, ax1 = plt.subplots(figsize=(10, 12))
     kwargs = {"rain_alpha": 0.3}
-    pt.RainCloud(x=soundspeed_data, y=all_soundspeeds, palette="Set2", bw=bw, width_viol=0.8,
-                 ax=ax, orient='h', pointplot=True, **kwargs)
+    pt.RainCloud(x=soundspeed_data, y=all_soundspeeds, palette="Set2", bw=bw, width_viol=0.9,
+                 ax=ax1, orient='h', pointplot=False, linecolor='gray', **kwargs)
     if x_limits is not None:
-        plt.xlim(x_limits)
-    plt.title("Raincloud plot of Sound Speed across Redshifts")
-    plt.ylabel("Redshift")
-    plt.xlabel("Sound Speed [km/s]")
+        ax1.set_xlim(x_limits)
+    ax1.set_title("Raincloud plot of Sound Speed across Redshifts")
+    ax1.set_ylabel("Redshift")
+    ax1.set_xlabel("Sound Speed [km/s]")
 
-    # Annotate mean sound speeds
-    for mean, redshift in zip(Cs_means, redshifts):
-        ax.text(mean + 7, redshift + 0.2, f'$\overline{{c}}_s = {mean:.2f}$ km/s', color='black')
+    # Annotate mean and median sound speeds
+    for median, mean, redshift in zip(Cs_medians, Cs_means, redshifts):
+        ax1.plot(mean, redshift, 'o', color= 'dimgrey')
+        ax1.text(median + 7, redshift + 0.2, f'$\widetilde{{c}}_s = {median:.2f}$ km/s' + ', ' + f'$\overline{{c}}_s = {mean:.2f}$ km/s', color='black')
 
-    # Fit and plot polynomial line
-    coef = np.polyfit(scale_factors, Cs_means, 1)
-    poly1d_fn = np.poly1d(coef)
-    polynomial_str = f"Best linear fit: $\overline{{c}}_s = {coef[0]:.2f}a + {coef[1]:.2f}$"
-    plt.text(0.65, 0.05, polynomial_str, transform=ax.transAxes)
+    # # Fit and plot polynomial line for the mean
+    # coef = np.polyfit(scale_factors, Cs_means, 1)
+    # poly1d_fn = np.poly1d(coef)
+    # polynomial_str = f"Best linear fit: $\overline{{c}}_s = {coef[0]:.2f}a + {coef[1]:.2f}$"
+    # ax1.text(0.65, 0.05, polynomial_str, transform=ax1.transAxes)
+
+    # Connect median points with a line
+    ax1.plot(Cs_medians, redshifts, color= 'k', ls= ':', lw = '2', label='Median Trend Line')
+    ax1.plot(Cs_means, redshifts, color= 'dimgrey', ls= '-', lw = '2', label='Mean Trend Line')
+
+    # Extract simulation details from path for annotation
+    path_parts = path.strip('/').split('/')
+    simulation_details = '/'.join(path_parts[-2:])  # Get the last two segments of the path
+
+    # Adding the formatted sample size and simulation details to the plot
+    sample_size_formatted = f"{sample_size:,}".replace(',', ' ')  # Format with space as thousand separator
+    ax1.text(0.4, 0.03, f'Plotted sample of size {sample_size_formatted} of simulation {simulation_details}', 
+             transform=ax1.transAxes, fontsize=10)#, ha='right', va='bottom')
+
+    ax1.legend()
+    # Create a secondary y-axis to show the scale factor
+    ax2 = ax1.twinx()
+    ax2.set_ylim(ax1.get_ylim())  # Ensure the new y-axis shares the same scale
+    ax2.set_yticks(redshifts)
+    ax2.set_yticklabels([f'{a:.3f}' for a in scale_factors])
+    ax2.set_ylabel('Scale Factor')
 
     plt.show()
 
-def preview(path, snapshot_numbers, quantity, unit_scale='kpc'):
+def plot_median_soundspeed_with_polynomial_fit(path, snapshot_numbers, max_degree=5, a_0=0.1):
+    """
+    Plots the median sound speed against the scale factor from snapshot files and fits a piecewise polynomial to the data.
+
+    This function reads internal energy data from a series of snapshot files, calculates the sound speed, 
+    and plots the median sound speed as a function of the scale factor. It also fits a piecewise polynomial 
+    to the data and displays the fitted function.
+
+    Args:
+        path (str): The base path containing the snapshot files.
+        snapshot_numbers (list of int): List of snapshot numbers to be processed.
+        max_degree (int, optional): Maximum degree of the polynomial fit. Default is 5.
+        a_0 (float, optional): Scale factor threshold for the piecewise function. Default is 0.1.
+
+    Example:
+        plot_median_soundspeed_with_polynomial_fit(
+            path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
+            snapshot_numbers=[14, 18, 24, 28, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90],
+            max_degree=5,
+            a_0=0.1
+        )
+    """
+    medians = []
+    scale_factors = []
+
+    for num in snapshot_numbers:
+        snapshot_path = os.path.join(path, f'snapshot_{num:03}.hdf5')
+        with h5py.File(snapshot_path, 'r') as file:
+            U = file['PartType0/InternalEnergy'][:]
+            scale_factor = file['Header'].attrs['Time']
+            soundspeed = np.sqrt(5/3 * (5/3 - 1.0) * U)
+            median_cs = np.median(soundspeed)
+            medians.append(median_cs)
+            scale_factors.append(scale_factor)
+
+    scale_factors = np.array(scale_factors)
+    medians = np.array(medians)
+
+    # Polynomial fitting
+    model = make_pipeline(PolynomialFeatures(max_degree), LinearRegression())
+    model.fit(scale_factors[:, np.newaxis], medians)
+    coeffs = model.named_steps['linearregression'].coef_
+    coeffs = np.round(coeffs, 2)  # Ensure continuity
+    intercept = model.named_steps['linearregression'].intercept_
+    intercept = np.round(intercept, 2)
+
+    # Find value at a_0
+    cs_a0 = intercept
+    for i, coef in enumerate(coeffs[1:], 1):
+        cs_a0 += coef * a_0**i
+
+    # Plot results
+    plt.figure(figsize=(10, 6))
+    plt.plot(scale_factors, medians, 'o', label='Median Data')
+    plt.plot(
+        np.linspace(a_0, max(scale_factors), 400), 
+        [intercept + sum(coef * a**i for i, coef in enumerate(coeffs[1:], 1)) for a in np.linspace(a_0, max(scale_factors), 400)], 
+        c='green', ls='-', label=f'Piecewise Polynomial (Degree {max_degree})'
+    )
+    plt.axvline(x=a_0, color='grey', linestyle='--', label=f'$a_0 = {a_0}$')
+    plt.axhline(y=cs_a0, color='grey', linestyle='--', label=f'$c_{{s,a_0}} = {cs_a0:.3f}$')
+    plt.hlines(y=cs_a0, xmin=0, xmax=a_0, colors='green', linestyles='-')
+    plt.title('Median Sound Speed vs. Scale Factor')
+    plt.xlabel('Scale Factor (a)')
+    plt.ylabel('Median Sound Speed (km/s)')
+    plt.legend()
+    plt.xlim(0)
+    plt.grid(True)
+    plt.show()
+
+    # Print the piecewise function equation
+    piecewise_eq = f"cs(a) = {{ {cs_a0:.2f} if a < {a_0} else {intercept:.2f}"
+    for i, coef in enumerate(coeffs[1:], 1):
+        piecewise_eq += f" + {coef:.2f}*a^{i}"
+    piecewise_eq += "}"
+    print("Piecewise Function Equation:")
+    print(piecewise_eq)
+
+def preview(path, snapshot_numbers, quantity, snapshot_base_name= 'snapshot', unit_scale='kpc'):
     """
     Creates a plot of snapshot quantity from multiple snapshot files.
 
@@ -276,6 +381,7 @@ def preview(path, snapshot_numbers, quantity, unit_scale='kpc'):
         path (str): The base path containing the snapshot files.
         snapshot_numbers (list of int): List of snapshot numbers to plot.
         quantity (str): Quantity name (e.g., 'gas_density' or 'gas_temperature').
+        snapshot_base_name (str): Base name of the snapshot files (default: 'snapshot'). Underscore is accounted for.
         unit_scale (str): Unit scale ('kpc' or 'mpc') for interpreting the data. Default is 'kpc'.
 
     Example:
@@ -304,7 +410,7 @@ def preview(path, snapshot_numbers, quantity, unit_scale='kpc'):
 
     first_time = True
     for ax, snapshot_number in zip(axes, snapshot_numbers):
-        snapshot_path = os.path.join(path, f'snapshot_{snapshot_number:03}.hdf5')
+        snapshot_path = os.path.join(path, f"{snapshot_base_name}_{snapshot_number:03}.hdf5")
 
         # Read data from snapshot
         boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path, unit_scale)
@@ -332,7 +438,7 @@ def preview(path, snapshot_numbers, quantity, unit_scale='kpc'):
 
     save_plot(fig, path, quantity)
 
-def preview_3d(path, snapshot_numbers, quantity, subset_size, unit_scale='kpc'):
+def preview_3d(path, snapshot_numbers, quantity, subset_size, snapshot_base_name = 'snapshot', unit_scale='kpc'):
     """
     Creates an interactive 3D plot of snapshot quantity using Plotly and saves it as an HTML file.
 
@@ -341,6 +447,7 @@ def preview_3d(path, snapshot_numbers, quantity, subset_size, unit_scale='kpc'):
         snapshot_numbers (list of int): List of snapshot numbers to plot.
         quantity (str): Quantity name (e.g., 'gas_density' or 'gas_temperature').
         subset_size (int): Size of randomly chosen points to be plotted to manage performance.
+        snapshot_base_name (str): Base name of the snapshot files (default: 'snapshot'). Underscore is accounted for.
 
     Example Usage:
         path = '/your/data/directory'
@@ -360,7 +467,7 @@ def preview_3d(path, snapshot_numbers, quantity, subset_size, unit_scale='kpc'):
 
     # Prepare the object
     for snapshot_number in snapshot_numbers:
-        snapshot_path = os.path.join(path, f'snapshot_{snapshot_number:03}.hdf5')
+        snapshot_path = os.path.join(path, f"{snapshot_base_name}_{snapshot_number:03}.hdf5")
 
         # Read data from snapshot
         boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path, unit_scale)
