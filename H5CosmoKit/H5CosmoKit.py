@@ -327,10 +327,30 @@ def validate_quantity(quantity):
 ###############################################################################################
 # FUNCIONALITY
 
-def plot_internalenergy_distribution(path, snapshot_base_name, snapshot_numbers, bw=1, x_limits=None, sample_size=None):
+def plot_internalenergy_distribution(path, snapshot_numbers, bw=7, x_limits=(0, 200000), sample_size=None, snapshot_base_name="snapshot"):
     """
     Plots the distribution of internal energy from multiple snapshot files as a raincloud plot.
+
+    Args:
+        path (str): The base path containing the snapshot files.
+        snapshot_base_name (str): Base name of the snapshot files. Default is 'snapshot'.
+        snapshot_numbers (list of int): List of snapshot numbers to plot. Default is None.
+        bw (float): Bandwidth for the density estimation in the raincloud plot. Default is 7.
+        x_limits (tuple): X-axis limits for the plot. Default is (0, 100000).
+        sample_size (int, optional): Number of random samples to select from each snapshot. If None, all data is used. Default is None.
+
+    Example:
+        plot_internalenergy_distribution(
+            path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
+            snapshot_numbers=[32, 44, 60, 90],
+            sample_size=50000
+        )
+
+    This will display a raincloud plot of internal energies across various redshifts, with mean and median trends.
     """
+    if snapshot_numbers is None:
+        raise ValueError("snapshot_numbers must be provided.")
+    
     U_means = []
     all_internalenergies = []
     internalenergy_lengths = []
@@ -352,8 +372,8 @@ def plot_internalenergy_distribution(path, snapshot_base_name, snapshot_numbers,
         U_medians.append(U_median)
         all_internalenergies.extend(U)
         internalenergy_lengths.append(len(U))
-        redshifts.append(round(redshift, 2))  # Round redshift for consistency
-        scale_factors.append(round(scale_factor, 3))  # Round scale factor
+        redshifts.append(round(redshift))
+        scale_factors.append(scale_factor)
 
     internalenergy_data = np.repeat(redshifts, internalenergy_lengths)
 
@@ -364,18 +384,19 @@ def plot_internalenergy_distribution(path, snapshot_base_name, snapshot_numbers,
     if x_limits is not None:
         ax1.set_xlim(x_limits)
     ax1.set_title("Raincloud plot of Internal Energy across Redshifts")
-    ax1.set_ylabel(r"Redshift")
-    ax1.set_xlabel(r"Internal Energy $\mathrm{[(km/s)^2]}$")
+    ax1.set_ylabel("Redshift")
+    ax1.set_xlabel("Internal Energy [(km/s)^2]")
 
     for median, mean, redshift in zip(U_medians, U_means, redshifts):
-        ax1.plot(mean, redshift, 'o', color= 'dimgrey')
+        ax1.plot(mean, redshift, 'o', color='dimgrey')
         ax1.text(median + 7, redshift + 0.2, f'$\widetilde{{U}} = {median:.2f}$ (km/s)^2' + ', ' + f'$\overline{{U}} = {mean:.2f}$ (km/s)^2', color='black')
 
-    ax1.plot(U_medians, redshifts, color= 'k', ls= ':', lw = '2', label='Median Trend Line')
-    ax1.plot(U_means, redshifts, color= 'dimgrey', ls= '-', lw = '2', label='Mean Trend Line')
+    ax1.plot(U_medians, redshifts, color='k', ls=':', lw='2', label='Median Trend Line')
+    ax1.plot(U_means, redshifts, color='dimgrey', ls='-', lw='2', label='Mean Trend Line')
 
-    sample_size_formatted = f"{sample_size:,}".replace(',', ' ')
-    ax1.text(0.4, 0.03, f'Plotted sample of size {sample_size_formatted}', transform=ax1.transAxes, fontsize=10)
+    if sample_size is not None:
+        sample_size_formatted = f"{sample_size:,}".replace(',', ' ')
+        ax1.text(0.4, 0.03, f'Plotted sample of size {sample_size_formatted}', transform=ax1.transAxes, fontsize=10)
 
     ax2 = ax1.twinx()
     ax2.set_ylim(ax1.get_ylim())
@@ -385,7 +406,7 @@ def plot_internalenergy_distribution(path, snapshot_base_name, snapshot_numbers,
 
     plt.show()
 
-def plot_median_soundspeed_with_polynomial_fit(path, snapshot_numbers, max_degree=5, a_0=0.1):
+def plot_median_soundspeed_with_polynomial_fit(path, snapshot_numbers, max_degree=5, a_0=0.1, snapshot_base_name="snapshot"):
     """
     Plots the median sound speed against the scale factor from snapshot files and fits a polynomial.
 
@@ -394,18 +415,21 @@ def plot_median_soundspeed_with_polynomial_fit(path, snapshot_numbers, max_degre
         snapshot_numbers (list of int): List of snapshot numbers to be processed.
         max_degree (int): Maximum degree of the polynomial fit. Default is 5.
         a_0 (float): Scale factor threshold for the piecewise function.
+        snapshot_base_name (str): Base name of the snapshot files. Default is 'snapshot'.
 
-    Example usage:
+    Example:
     plot_median_soundspeed_with_polynomial_fit(
         path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
         snapshot_numbers=[14, 18, 24, 28, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90],
-        max_degree=5
+        max_degree=5,
+        a_0=0.1
+    )
     """
     medians = []
     scale_factors = []
 
     for num in snapshot_numbers:
-        snapshot_path = os.path.join(path, f'snapshot_{num:03}.hdf5')
+        snapshot_path = os.path.join(path, f"{snapshot_base_name}_{num:03}.hdf5")
         with h5py.File(snapshot_path, 'r') as file:
             U = file['PartType0/InternalEnergy'][:]
             scale_factor = file['Header'].attrs[u'Time']
@@ -454,7 +478,7 @@ def plot_median_soundspeed_with_polynomial_fit(path, snapshot_numbers, max_degre
     print("Piecewise Function Equation:")
     print(piecewise_eq)
 
-def plot_median_internalenergy_with_polynomial_fit(path, snapshot_numbers, max_degree=5):
+def plot_median_internalenergy_with_polynomial_fit(path, snapshot_numbers, max_degree=5, snapshot_base_name="snapshot"):
     """
     Plots the median internal energy against the scale factor from snapshot files and fits a piecewise polynomial.
 
@@ -462,18 +486,20 @@ def plot_median_internalenergy_with_polynomial_fit(path, snapshot_numbers, max_d
         path (str): The base path containing the snapshot files.
         snapshot_numbers (list of int): List of snapshot numbers to be processed.
         max_degree (int): Maximum degree of the polynomial fit. Default is 5.
+        snapshot_base_name (str): Base name of the snapshot files. Default is 'snapshot'.
 
-    Example usage:
+    Example:
     plot_median_internalenergy_with_polynomial_fit(
         path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
         snapshot_numbers=[14, 18, 24, 28, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90],
         max_degree=5
+    )
     """
     medians = []
     scale_factors = []
 
     for num in snapshot_numbers:
-        snapshot_path = os.path.join(path, f'snapshot_{num:03}.hdf5')
+        snapshot_path = os.path.join(path, f'{snapshot_base_name}_{num:03}.hdf5')
         with h5py.File(snapshot_path, 'r') as file:
             U = file['PartType0/InternalEnergy'][:]
             scale_factor = file['Header'].attrs[u'Time']
@@ -532,31 +558,34 @@ def plot_median_internalenergy_with_polynomial_fit(path, snapshot_numbers, max_d
         for i, coef in enumerate(model.coef_, 1):
             piecewise_eq += f" + {coef:.2f}*(a - {a_0})^{i}"
         piecewise_eq += "}"
-    
+
     print("Function Equation:")
     print(piecewise_eq)
 
-def plot_soundspeed_distribution(path, snapshot_base_name, snapshot_numbers, bw=1, x_limits=None, sample_size=None):
+def plot_soundspeed_distribution(path, snapshot_numbers, bw=2, x_limits=(0, 300), sample_size=None, snapshot_base_name="snapshot"):
     """
     Plots the distribution of sound speeds from multiple snapshot files as a raincloud plot.
 
     Args:
         path (str): The base path containing the snapshot files.
-        snapshot_base_name (str): Base name of the snapshot files (e.g., 'snapshot', 'snap'). Underscore is accounted for.
-        snapshot_numbers (list of int): List of snapshot numbers to plot.
+        snapshot_base_name (str): Base name of the snapshot files. Default is 'snapshot'.
+        snapshot_numbers (list of int): List of snapshot numbers to plot. Default is None.
         bw (float): Bandwidth for the density estimation in the raincloud plot. Default is 1.
-        x_limits (tuple): X-axis limits for the plot. Default is None, which auto-scales.
-        sample_size (int): Number of random samples to select from each snapshot. Default is None (use all data).
+        x_limits (tuple): X-axis limits for the plot. Default is (0, 300).
+        sample_size (int, optional): Number of random samples to select from each snapshot. If None, all data is used. Default is None.
 
-    Example usage:
-    plot_soundspeed_distribution(
-        path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
-        snapshot_base_name='snapshot',
-        snapshot_numbers=[32, 44, 60, 90],
-        bw=1,
-        x_limits=(0, 300),
-        sample_size=50000
+    Example:
+        plot_soundspeed_distribution(
+            path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
+            snapshot_numbers=[32, 44, 60, 90],
+            sample_size=50000
+        )
+
+    This will display a raincloud plot of sound speeds across various redshifts, with mean and median trends.
     """
+    if snapshot_numbers is None:
+        raise ValueError("snapshot_numbers must be provided.")
+    
     Cs_means = []
     all_soundspeeds = []
     soundspeed_lengths = []
@@ -583,10 +612,8 @@ def plot_soundspeed_distribution(path, snapshot_base_name, snapshot_numbers, bw=
         redshifts.append(round(redshift))
         scale_factors.append(scale_factor)
 
-    # Convert collected soundspeeds and corresponding redshifts for plotting
     soundspeed_data = np.repeat(redshifts, soundspeed_lengths)
 
-    # Create the raincloud plot
     fig, ax1 = plt.subplots(figsize=(10, 12))
     kwargs = {"rain_alpha": 0.3}
     pt.RainCloud(x=soundspeed_data, y=all_soundspeeds, palette="Set2", bw=bw, width_viol=0.9,
@@ -597,27 +624,19 @@ def plot_soundspeed_distribution(path, snapshot_base_name, snapshot_numbers, bw=
     ax1.set_ylabel("Redshift")
     ax1.set_xlabel("Sound Speed [km/s]")
 
-    # Annotate mean and median sound speeds
     for median, mean, redshift in zip(Cs_medians, Cs_means, redshifts):
-        ax1.plot(mean, redshift, 'o', color= 'dimgrey')
+        ax1.plot(mean, redshift, 'o', color='dimgrey')
         ax1.text(median + 7, redshift + 0.2, f'$\widetilde{{c}}_s = {median:.2f}$ km/s' + ', ' + f'$\overline{{c}}_s = {mean:.2f}$ km/s', color='black')
 
-    # Connect median points with a line
-    ax1.plot(Cs_medians, redshifts, color= 'k', ls= ':', lw = '2', label='Median Trend Line')
-    ax1.plot(Cs_means, redshifts, color= 'dimgrey', ls= '-', lw = '2', label='Mean Trend Line')
+    ax1.plot(Cs_medians, redshifts, color='k', ls=':', lw='2', label='Median Trend Line')
+    ax1.plot(Cs_means, redshifts, color='dimgrey', ls='-', lw='2', label='Mean Trend Line')
 
-    # Extract simulation details from path for annotation
-    path_parts = path.strip('/').split('/')
-    simulation_details = '/'.join(path_parts[-2:])  # Get the last two segments of the path
+    if sample_size is not None:
+        sample_size_formatted = f"{sample_size:,}".replace(',', ' ')
+        ax1.text(0.4, 0.03, f'Plotted sample of size {sample_size_formatted}', transform=ax1.transAxes, fontsize=10)
 
-    # Adding the formatted sample size and simulation details to the plot
-    sample_size_formatted = f"{sample_size:,}".replace(',', ' ')  # Format with space as thousand separator
-    ax1.text(0.4, 0.03, f'Plotted sample of size {sample_size_formatted} of simulation {simulation_details}', 
-             transform=ax1.transAxes, fontsize=10)
-
-    ax1.legend()
     ax2 = ax1.twinx()
-    ax2.set_ylim(ax1.get_ylim())  # Ensure the new y-axis shares the same scale
+    ax2.set_ylim(ax1.get_ylim())
     ax2.set_yticks(redshifts)
     ax2.set_yticklabels([f'{a:.3f}' for a in scale_factors])
     ax2.set_ylabel('Scale Factor')
@@ -719,7 +738,7 @@ def preview_3d(path, snapshot_numbers, quantity, subset_size, snapshot_base_name
         subset_size (int): Size of randomly chosen points to be plotted to manage performance.
         snapshot_base_name (str): Base name of the snapshot files (default: 'snapshot'). Underscore is accounted for.
 
-    Example Usage:
+    Example:
         path = '/your/data/directory'
         snapshot_numbers = [30]
         quantity = 'gas_temperature'
