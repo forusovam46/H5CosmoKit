@@ -14,7 +14,7 @@ requires-python = ">=3.8"
 dependencies = [
     "h5py >=3.7.0",
     "matplotlib ==3.5.3",
-    "numpy >=1.18.5",
+    "numpy >=1.18.5, <2.0",
     "plotly >=5.18.0",
     "ptitprince >=0.2.7",
     "Pylians >=0.11",
