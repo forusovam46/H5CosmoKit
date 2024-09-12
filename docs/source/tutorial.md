@@ -59,25 +59,26 @@ ckit.preview_3d(path, snapshot_numbers, 'gas_temperature', subset_size)
 
 ## Soundspeed & Internal Energy
 
-You can visualize the distribution of sound speed internal energy as a raincloud plot.
+You can visualize the distribution of sound speed or internal energy as a raincloud plot.
 
-```{code-cell}
-path = '.'
-snapshot_numbers = [90]
-ckit.plot_soundspeed_distribution(path, snapshot_numbers, bw=0.6, x_limits=(0, 300), sample_size=10000)
-ckit.plot_internalenergy_distribution(path, 'snapshot', snapshot_numbers, bw=1, x_limits=(0, 100000), sample_size=50000)
+```python
+ckit.plot_internalenergy_distribution(
+    path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
+    snapshot_numbers=[32, 44, 60, 90],
+    sample_size=50000
+)
 ```
 
-In addition to visualizing these distributions, you can also fit a polynomial to the median values of the sound speed and internal energy across multiple snapshots using the functions `plot_median_soundspeed_with_polynomial_fit()` and `plot_median_internalenergy_with_polynomial_fit()`.
+![Raincloud Plot](raincloud.png)
 
-Note: Polynomial fits require multiple snapshot files across different redshifts to capture time evolution. As only a single snapshot is downloaded here, this functionality is not demonstrated. If you have multiple snapshots, you can use the functions like this:
+In addition to visualizing these distributions, you can also fit a polynomial to the median values of the sound speed or internal energy across multiple snapshots using the functions `plot_median_soundspeed_with_polynomial_fit()` and `plot_median_internalenergy_with_polynomial_fit()`.
 
-If you have multiple snapshots, you can use these functions as follows:
-
+```python
+ckit.plot_median_internalenergy_with_polynomial_fit(path, snapshot_numbers)
 ```
-ckit.plot_median_soundspeed_with_polynomial_fit(path, snapshot_numbers, max_degree=5)
-ckit.plot_median_internalenergy_with_polynomial_fit(path, snapshot_numbers, max_degree=5)
-```
+
+![Polynomial Fit](fit.png)
+
 
 ## Power Spectra
 
