@@ -16,6 +16,36 @@ from sklearn.pipeline import make_pipeline
 import sys
 
 ###############################################################################################
+# CALCULATE QUANTITIES
+
+def calc_entropy(U, rho_g):
+    """
+    Computes the entropy of gas particles.
+
+    Args:
+        U (numpy.ndarray): Specific internal energy array from snapshot (in km/s)^2.
+        rho_g (numpy.ndarray): Density array from snapshot.
+
+    Returns:
+        numpy.ndarray: Computed entropy.
+    """
+    gamma = 5.0 / 3.0
+    pressure = (gamma - 1.0) * U * rho_g
+    return np.log10(pressure / rho_g**(5 / 3))
+
+def calc_pressure(U, rho_g):
+    """
+    Computes the pressure of gas particles.
+
+    Args:
+        U (numpy.ndarray): Specific internal energy array from snapshot (in km/s)^2.
+        rho_g (numpy.ndarray): Density array from snapshot.
+
+    Returns:
+        numpy.ndarray: Computed pressure.
+    """
+    gamma = 5.0 / 3.0
+    return (gamma - 1.0) * U * rho_g
 
 def calc_soundSpeed(U):
     """
@@ -42,6 +72,53 @@ def calc_soundSpeed(U):
     gamma = 5/3  # Adiabatic index for monatomic ideal gas
     Cs = np.sqrt(gamma * (gamma - 1.0) * U)  # Calculate sound speed
     return Cs
+
+def calc_temperature(U, ne):
+    """
+    Computes the temperature of particles in a snapshot.
+
+    This function calculates the temperature of particles in a snapshot based on their internal energy,
+    electron abundance, and the helium mass fraction. It uses constants for the Boltzmann constant
+    and proton mass.
+
+    Args:
+        U (numpy.ndarray): Particle internal energy in (km/s)^2.
+        ne (numpy.ndarray): Electron abundance.
+
+    Returns:
+        numpy.ndarray: An array of temperatures for each particle in the snapshot.
+    """
+    BOLTZMANN = 1.38065e-16  # erg/K - NIST 2010
+    PROTONMASS = 1.67262178e-24  # gram - NIST 2010
+
+    yhelium = 0.0789  # Helium mass fraction
+    T = U * (1.0 + 4.0 * yhelium) / (1.0 + yhelium + ne) * 1e10 * (2.0 / 3.0)
+    T *= (PROTONMASS / BOLTZMANN)  # Convert to Kelvin
+    return T
+
+def compute_power_spectrum(pos, mass, BoxSize, grid=512, MAS='CIC'):
+    """
+    Computes the power spectrum for given positions and masses of particles.
+    """
+    delta = np.zeros((grid, grid, grid), dtype=np.float32)
+    MASL.MA(pos, delta, BoxSize, MAS, W=mass, verbose=True)
+
+    # Normalize the density field
+    delta /= np.mean(delta, dtype=np.float32)
+    delta -= 1.0
+
+    # Compute the Power Spectrum
+    axis = 0
+    threads = 1
+    verbose = True
+    Pk_class = PKL.Pk(delta, BoxSize, axis, MAS, threads, verbose)
+    k = Pk_class.k3D
+    Pk = Pk_class.Pk[:, 0]
+
+    return k, Pk
+
+###############################################################################################
+# HELP FUNCTIONS
 
 def download_file(url, local_filename):
     """
@@ -84,73 +161,6 @@ def interpolate_quantity(pos_g, quantity_g, boxSize):
     interp = NearestNDInterpolator(pos, quantity_g, tree_options={'boxsize': boxSize})
     return interp
 
-###############################################################################################
-#TODO: revise functionality for power spectra
-def power_ratio(f_snap):
-    """
-    Processes a snapshot file to compute and plot power spectrum ratios.
-    """
-    data = h5py.File(f_snap, 'r')
-    BoxSize = data['Header'].attrs['BoxSize'] / 1e3  # Mpc/h
-    Masses = data['Header'].attrs['MassTable'] * 1e10  # Msun/h
-
-    # Read baryon (gas) and CDM particles
-    pos_baryons, mass_baryons = read_particles(data, 0, Masses)  # Assuming gas for baryons
-    pos_dm, mass_dm = read_particles(data, 1, Masses)  # CDM
-
-    # Compute power spectra
-    k_baryon, Pk_baryon = compute_power_spectrum(pos_baryons, mass_baryons, BoxSize)
-    k_dm, Pk_dm = compute_power_spectrum(pos_dm, mass_dm, BoxSize)
-
-    # Plot the ratio
-    plot_power_spectrum_ratio(k_baryon, Pk_baryon, k_dm, Pk_dm)
-
-def read_particles(data, part_type, mass_table):
-    """
-    Reads positions and masses of particles of a given type from the HDF5 data.
-    """
-    pos = data[f'PartType{part_type}/Coordinates'][:] / 1e3  # Positions in Mpc/h
-    try:
-        mass = data[f'PartType{part_type}/Masses'][:] * 1e10  # Masses in Msun/h
-    except KeyError:
-        mass = np.ones(len(pos)) * mass_table[part_type]  # Uniform mass
-    return pos.astype(np.float32), mass.astype(np.float32)
-
-def compute_power_spectrum(pos, mass, BoxSize, grid=512, MAS='CIC'):
-    """
-    Computes the power spectrum for given positions and masses of particles.
-    """
-    delta = np.zeros((grid, grid, grid), dtype=np.float32)
-    MASL.MA(pos, delta, BoxSize, MAS, W=mass, verbose=True)
-
-    # Normalize the density field
-    delta /= np.mean(delta, dtype=np.float32)
-    delta -= 1.0
-
-    # Compute the Power Spectrum
-    axis = 0
-    threads = 1
-    verbose = True
-    Pk_class = PKL.Pk(delta, BoxSize, axis, MAS, threads, verbose)
-    k = Pk_class.k3D
-    Pk = Pk_class.Pk[:, 0]
-
-    return k, Pk
-
-def plot_power_spectrum_ratio(k_baryon, Pk_baryon, k_dm, Pk_dm):
-    """
-    Plots the ratio of power spectra.
-    """
-    plt.figure(figsize=(8, 6))
-    plt.loglog(k_baryon, Pk_baryon / Pk_dm, 'o', label='P_baryon / P_CDM', alpha=0.8)  # Plot as points
-    plt.axhline(y=1, color='k', linestyle='--', alpha=0.8)  # Dashed line at y=1
-    plt.xlabel(r'$k \, [h/\mathrm{Mpc}]$')
-    plt.ylabel(r'$P_{\mathrm{baryon}}(k) / P_{\mathrm{CDM}}(k)$')
-    plt.legend()
-    plt.show()
-
-###############################################################################################
-
 def Pk_suffix(ptype):
     """
     Maps a particle type to its corresponding label.
@@ -171,6 +181,46 @@ def Pk_suffix(ptype):
     elif ptype == [0, 1, 4, 5]:   return 'm'
     else:   raise Exception('No label found for ptype')
 
+def plot_phase_diagram(ax, rho_g, quantity, title, xlabel, ylabel, bins=100, cmap='Reds'):
+    """
+    Plots a 2D histogram phase diagram for given density and quantity (e.g., temperature, pressure, entropy).
+    
+    Args:
+        ax (matplotlib.axes.Axes): The axis to plot on.
+        rho_g (numpy.ndarray): Density array from snapshot.
+        quantity (numpy.ndarray): Computed quantity (e.g., temperature, pressure, entropy).
+        title (str): Plot title.
+        xlabel (str): Label for the x-axis.
+        ylabel (str): Label for the y-axis.
+        bins (int): Number of bins for the 2D histogram.
+        cmap (str): Colormap to use.
+    """
+    # Filter out invalid values (NaNs, negative, or zero values)
+    valid_mask = np.isfinite(rho_g) & np.isfinite(quantity) & (rho_g > 0) & (quantity > 0)
+    
+    # Logarithmic transform
+    log_rho_g = np.log10(rho_g[valid_mask])
+    log_quantity = np.log10(quantity[valid_mask])
+    
+    # Plot the phase diagram
+    h = ax.hist2d(log_rho_g, log_quantity, bins=bins, norm=LogNorm(), cmap=cmap)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    plt.colorbar(h[3], ax=ax)
+
+def plot_power_spectrum_ratio(k_baryon, Pk_baryon, k_dm, Pk_dm):
+    """
+    Plots the ratio of power spectra.
+    """
+    plt.figure(figsize=(8, 6))
+    plt.loglog(k_baryon, Pk_baryon / Pk_dm, 'o', label='P_baryon / P_CDM', alpha=0.8)  # Plot as points
+    plt.axhline(y=1, color='k', linestyle='--', alpha=0.8)  # Dashed line at y=1
+    plt.xlabel(r'$k \, [h/\mathrm{Mpc}]$')
+    plt.ylabel(r'$P_{\mathrm{baryon}}(k) / P_{\mathrm{CDM}}(k)$')
+    plt.legend()
+    plt.show()
+
 def plot_snapshot(ax, grid_quantity, boxSize, title, quantity):
     """
     Plots a snapshot quantity grid.
@@ -181,38 +231,324 @@ def plot_snapshot(ax, grid_quantity, boxSize, title, quantity):
         boxSize (float): Box size in Mpch^{-1}.
         title (str): Title for the plot.
         quantity (str): Quantity name (e.g., 'gas_density' or 'gas_temperature').
-
-    Returns:
-        matplotlib.image.AxesImage: The plotted image.
-
-    # Example usage
-        path = '/gpfs/data/fs72085/mfo/CAMELS/CV0_CAMELS_output'
-        snapshot_numbers = [10, 18, 33]
-        plot_sound_speeds(path, snapshot_numbers, sample_size=10000)  # Specifying a sample size
     """
-
-    cmap = plt.cm.get_cmap('Spectral').reversed() if quantity == 'gas_density' else plt.cm.get_cmap('hot')
+    cmap = plt.cm.get_cmap('Spectral_r') if quantity == 'gas_density' else plt.cm.get_cmap('hot')
 
     im = ax.imshow(grid_quantity[:, :, 128], extent=[0, boxSize, 0, boxSize], origin='lower', norm=LogNorm(), cmap=cmap)
     ax.axis('equal')
-    ax.set_xlabel(r'$x \:[Mpc/h$]')
-    ax.set_ylabel(r'$y \:[Mpc/h$]')
+    ax.set_xlabel(r'$x \:[\mathrm{Mpc}/h]$')
+    ax.set_ylabel(r'$y \:[\mathrm{Mpc}/h]$')
     ax.set_title(title)
     return im
 
-def plot_soundspeed_distribution(path, snapshot_numbers, snapshot_base_name ='snapshot', bw=1, x_limits=None, sample_size=None):
+def read_particles(data, part_type, mass_table):
     """
-    Plots the distribution of sound speeds from multiple snapshot files as a raincload plot.
+    Reads positions and masses of particles of a given type from the HDF5 data.
+    """
+    pos = data[f'PartType{part_type}/Coordinates'][:] / 1e3  # Positions in Mpc/h
+    try:
+        mass = data[f'PartType{part_type}/Masses'][:] * 1e10  # Masses in Msun/h
+    except KeyError:
+        mass = np.ones(len(pos)) * mass_table[part_type]  # Uniform mass
+    return pos.astype(np.float32), mass.astype(np.float32)
+
+def read_snapshot(snapshot_path, unit_scale='kpc'):
+    """
+    Reads snapshot data from a HDF5 file, converting units if required.
+    
+    Args:
+        snapshot_path (str): Path to the HDF5 snapshot file.
+        unit_scale (str): Unit scale for length ('kpc' or 'mpc') of your snapshot file, default is 'mpc'.
+    
+    Returns:
+        tuple: Contains the box size, redshift, scale_factor, positions, densities, internal energies,
+               and electron abundances (if available) adjusted to the desired unit scale.
+               
+    System of units for default option (mpc):
+    %---- System of units
+    UnitLength_in_cm                      3.085678e24    %  1.0 Mpc
+    UnitMass_in_g                         1.989e43       %  1.0e10 solar masses
+    UnitVelocity_in_cm_per_s              1e5            %  1 km/sec
+    """
+    factor = 1e-3 if unit_scale == 'kpc' else 1  # Convert from kpc to Mpc if needed i.e for CAMELS
+    density_factor = factor**3  if unit_scale == 'kpc' else 1 # Adjust density for the change in volume unit
+
+    with h5py.File(snapshot_path, 'r') as f:
+        boxSize = f['Header'].attrs['BoxSize'] * factor
+        redshift = f['Header'].attrs['Redshift']
+        scale_factor = f['Header'].attrs[u'Time']
+        pos_g = f['PartType0/Coordinates'][:] * factor
+        pos_g = pos_g.astype(np.float32)
+        rho_g = f['PartType0/Density'][:] / density_factor
+        U = f['PartType0/InternalEnergy'][:]
+        ne = f['PartType0/ElectronAbundance'][:] if 'PartType0/ElectronAbundance' in f else np.zeros_like(U)
+
+    return boxSize, redshift, scale_factor, pos_g, rho_g, U, ne
+
+def save_plot(fig, path, quantity):
+    """
+    Saves the figure to a file with an appropriate filename.
+
+    Args:
+        fig (matplotlib.figure.Figure): The figure to be saved.
+        path (str): The base path where the plot will be saved.
+        quantity (str): Quantity name (e.g., 'gas_density' or 'gas_temperature').
+    """
+    path_last_parts = os.path.normpath(path).split(os.path.sep)[-2:]
+    filename = "_".join(path_last_parts) + f'_{quantity}.png'
+    plots_dir = os.path.join(path, 'plots')
+    
+    if not os.path.exists(plots_dir):
+        os.makedirs(plots_dir)
+
+    file_path = os.path.join(plots_dir, filename)
+    fig.savefig(file_path)
+    plt.show()
+
+def validate_quantity(quantity):
+    """
+    Validates the provided quantity against allowed values.
+
+    Args:
+        quantity (str): The quantity to validate.
+
+    Returns:
+        str: The validated quantity.
+    """
+    valid_quantities = ['gas_temperature', 'gas_density', 'pressure', 'entropy']
+    if quantity not in valid_quantities:
+        print("You have entered an invalid quantity. Please choose from 'gas_temperature', 'gas_density', 'pressure', or 'entropy'.")
+        quantity = input("Enter your choice (gas_temperature/gas_density/pressure/entropy): ").strip()
+        if quantity not in valid_quantities:
+            print("Invalid input received. Defaulting to 'gas_density'.")
+            quantity = 'gas_density'
+    return quantity
+
+###############################################################################################
+# FUNCIONALITY
+
+def plot_internalenergy_distribution(path, snapshot_base_name, snapshot_numbers, bw=1, x_limits=None, sample_size=None):
+    """
+    Plots the distribution of internal energy from multiple snapshot files as a raincloud plot.
+    """
+    U_means = []
+    all_internalenergies = []
+    internalenergy_lengths = []
+    redshifts = []
+    scale_factors = []
+    U_medians = []
+
+    for num in snapshot_numbers:
+        snapshot_path = os.path.join(path, f"{snapshot_base_name}_{num:03}.hdf5")
+        boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = ckit.read_snapshot(snapshot_path)
+        
+        if sample_size is not None:
+            random_indices = np.random.choice(len(U), min(sample_size, len(U)), replace=False)
+            U = U[random_indices]
+
+        U_mean = np.mean(U)
+        U_median = np.median(U)
+        U_means.append(U_mean)
+        U_medians.append(U_median)
+        all_internalenergies.extend(U)
+        internalenergy_lengths.append(len(U))
+        redshifts.append(round(redshift, 2))  # Round redshift for consistency
+        scale_factors.append(round(scale_factor, 3))  # Round scale factor
+
+    internalenergy_data = np.repeat(redshifts, internalenergy_lengths)
+
+    fig, ax1 = plt.subplots(figsize=(10, 12))
+    kwargs = {"rain_alpha": 0.3}
+    pt.RainCloud(x=internalenergy_data, y=all_internalenergies, palette="Set2", bw=bw, width_viol=0.9,
+                 ax=ax1, orient='h', pointplot=False, linecolor='gray', **kwargs)
+    if x_limits is not None:
+        ax1.set_xlim(x_limits)
+    ax1.set_title("Raincloud plot of Internal Energy across Redshifts")
+    ax1.set_ylabel(r"Redshift")
+    ax1.set_xlabel(r"Internal Energy $\mathrm{[(km/s)^2]}$")
+
+    for median, mean, redshift in zip(U_medians, U_means, redshifts):
+        ax1.plot(mean, redshift, 'o', color= 'dimgrey')
+        ax1.text(median + 7, redshift + 0.2, f'$\widetilde{{U}} = {median:.2f}$ (km/s)^2' + ', ' + f'$\overline{{U}} = {mean:.2f}$ (km/s)^2', color='black')
+
+    ax1.plot(U_medians, redshifts, color= 'k', ls= ':', lw = '2', label='Median Trend Line')
+    ax1.plot(U_means, redshifts, color= 'dimgrey', ls= '-', lw = '2', label='Mean Trend Line')
+
+    sample_size_formatted = f"{sample_size:,}".replace(',', ' ')
+    ax1.text(0.4, 0.03, f'Plotted sample of size {sample_size_formatted}', transform=ax1.transAxes, fontsize=10)
+
+    ax2 = ax1.twinx()
+    ax2.set_ylim(ax1.get_ylim())
+    ax2.set_yticks(redshifts)
+    ax2.set_yticklabels([f'{a:.3f}' for a in scale_factors])
+    ax2.set_ylabel('Scale Factor')
+
+    plt.show()
+
+def plot_median_soundspeed_with_polynomial_fit(path, snapshot_numbers, max_degree=5, a_0=0.1):
+    """
+    Plots the median sound speed against the scale factor from snapshot files and fits a polynomial.
 
     Args:
         path (str): The base path containing the snapshot files.
+        snapshot_numbers (list of int): List of snapshot numbers to be processed.
+        max_degree (int): Maximum degree of the polynomial fit. Default is 5.
+        a_0 (float): Scale factor threshold for the piecewise function.
+
+    Example usage:
+    plot_median_soundspeed_with_polynomial_fit(
+        path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
+        snapshot_numbers=[14, 18, 24, 28, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90],
+        max_degree=5
+    """
+    medians = []
+    scale_factors = []
+
+    for num in snapshot_numbers:
+        snapshot_path = os.path.join(path, f'snapshot_{num:03}.hdf5')
+        with h5py.File(snapshot_path, 'r') as file:
+            U = file['PartType0/InternalEnergy'][:]
+            scale_factor = file['Header'].attrs[u'Time']
+            soundspeed = np.sqrt(5/3 * (5/3 - 1.0) * U)
+            median_cs = np.median(soundspeed)
+            medians.append(median_cs)
+            scale_factors.append(scale_factor)
+
+    scale_factors = np.array(scale_factors)
+    medians = np.array(medians)
+
+    # Polynomial fitting
+    model = make_pipeline(PolynomialFeatures(max_degree), LinearRegression())
+    model.fit(scale_factors[:, np.newaxis], medians)
+    coeffs = model.named_steps['linearregression'].coef_
+    coeffs = np.round(coeffs, 2)
+    intercept = model.named_steps['linearregression'].intercept_
+    intercept = np.round(intercept, 2)
+
+    # Find value at a_0
+    cs_a0 = intercept
+    for i, coef in enumerate(coeffs[1:], 1):
+        cs_a0 += coef * a_0**i
+
+    # Plot results
+    plt.figure(figsize=(10, 6))
+    plt.plot(scale_factors, medians, 'o', label='Median Data')
+    plt.plot(np.linspace(a_0, max(scale_factors), 400), [intercept + sum(coef * a**i for i, coef in enumerate(coeffs[1:], 1)) 
+                                                         for a in np.linspace(a_0, max(scale_factors), 400)], c='green', ls='-', label=f'Piecewise Polynomial (Degree {max_degree})')
+    plt.axvline(x=a_0, color='grey', linestyle='--', label=f'$a_0 = {a_0}$')
+    plt.axhline(y=cs_a0, color='grey', linestyle='--', label=f'$c_{{s,a_0}} = {cs_a0:.3f}$')
+    plt.hlines(y=cs_a0, xmin=0, xmax=a_0, colors='green', linestyles='-')
+    plt.title('Median Sound Speed vs. Scale Factor')
+    plt.xlabel('Scale Factor (a)')
+    plt.ylabel('Median Sound Speed (km/s)')
+    plt.legend()
+    plt.xlim(0)
+    plt.grid(True)
+    plt.show()
+
+    # Print the piecewise function equation
+    piecewise_eq = f"cs(a) = {{ {cs_a0:.2f} if a < {a_0} else {intercept:.2f}"
+    for i, coef in enumerate(coeffs[1:], 1):
+        piecewise_eq += f" + {coef:.2f}*a^{i}"
+    piecewise_eq += "}"
+    print("Piecewise Function Equation:")
+    print(piecewise_eq)
+
+def plot_median_internalenergy_with_polynomial_fit(path, snapshot_numbers, max_degree=5):
+    """
+    Plots the median internal energy against the scale factor from snapshot files and fits a piecewise polynomial.
+
+    Args:
+        path (str): The base path containing the snapshot files.
+        snapshot_numbers (list of int): List of snapshot numbers to be processed.
+        max_degree (int): Maximum degree of the polynomial fit. Default is 5.
+
+    Example usage:
+    plot_median_internalenergy_with_polynomial_fit(
+        path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
+        snapshot_numbers=[14, 18, 24, 28, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90],
+        max_degree=5
+    """
+    medians = []
+    scale_factors = []
+
+    for num in snapshot_numbers:
+        snapshot_path = os.path.join(path, f'snapshot_{num:03}.hdf5')
+        with h5py.File(snapshot_path, 'r') as file:
+            U = file['PartType0/InternalEnergy'][:]
+            scale_factor = file['Header'].attrs[u'Time']
+            median_U = np.median(U)
+            medians.append(median_U)
+            scale_factors.append(scale_factor)
+
+    scale_factors = np.array(scale_factors)
+    medians = np.array(medians)
+
+    if max_degree == 0:
+        # If degree is zero, calculate the overall median
+        constant_fit = np.median(medians)
+        fitted_values = np.full_like(medians, constant_fit)
+    else:
+        # Automatically determine the first data point
+        a_0 = np.round(scale_factors[0], 2)
+        U_a0 = medians[0]
+
+        # Shift data to make (a_0, U_a0) the origin
+        shifted_scale_factors = scale_factors - a_0
+
+        # Polynomial fitting with shifted data
+        poly_features = PolynomialFeatures(degree=max_degree, include_bias=False)
+        X_poly = poly_features.fit_transform(shifted_scale_factors[:, np.newaxis])
+        
+        model = LinearRegression(fit_intercept=False)
+        model.fit(X_poly, medians - U_a0)
+
+        # Predict and shift back
+        fitted_values = model.predict(X_poly) + U_a0
+
+    # Plot results
+    plt.figure(figsize=(10, 6))
+    plt.plot(scale_factors, medians, 'o', label='Median Data')
+    if max_degree == 0:
+        plt.axhline(y=constant_fit, color='green', linestyle='-', label=f'Constant Fit (Median = {constant_fit:.2f})')
+    else:
+        plt.plot(scale_factors, fitted_values, c='green', ls='-', label=f'Piecewise Polynomial (Degree {max_degree})')
+        plt.axvline(x=a_0, color='grey', linestyle='--', label=f'$a_0 = {a_0}$')
+        plt.axhline(y=U_a0, color='grey', linestyle='--', label=f'$U_{{a_0}} = {U_a0:.3f}$')
+        plt.hlines(y=U_a0, xmin=0, xmax=a_0, colors='green', linestyles='-')
+    plt.title('Median Internal Energy vs. Scale Factor')
+    plt.xlabel('Scale Factor (a)')
+    plt.ylabel('Median Internal Energy [(km/s)^2]')
+    plt.legend()
+    plt.xlim(0)
+    plt.grid(True)
+    plt.show()
+
+    # Print the function equation
+    if max_degree == 0:
+        piecewise_eq = f"U(a) = {constant_fit:.2f}"
+    else:
+        piecewise_eq = f"U(a) = {{ {U_a0:.2f} if a < {a_0} else {U_a0:.2f}"
+        for i, coef in enumerate(model.coef_, 1):
+            piecewise_eq += f" + {coef:.2f}*(a - {a_0})^{i}"
+        piecewise_eq += "}"
+    
+    print("Function Equation:")
+    print(piecewise_eq)
+
+def plot_soundspeed_distribution(path, snapshot_base_name, snapshot_numbers, bw=1, x_limits=None, sample_size=None):
+    """
+    Plots the distribution of sound speeds from multiple snapshot files as a raincloud plot.
+
+    Args:
+        path (str): The base path containing the snapshot files.
+        snapshot_base_name (str): Base name of the snapshot files (e.g., 'snapshot', 'snap'). Underscore is accounted for.
         snapshot_numbers (list of int): List of snapshot numbers to plot.
-        snapshot_base_name (str): Base name of the snapshot files (default: 'snapshot', 'snap'). Underscore is accounted for.
         bw (float): Bandwidth for the density estimation in the raincloud plot. Default is 1.
         x_limits (tuple): X-axis limits for the plot. Default is None, which auto-scales.
         sample_size (int): Number of random samples to select from each snapshot. Default is None (use all data).
 
-    # Example usage
+    Example usage:
     plot_soundspeed_distribution(
         path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
         snapshot_base_name='snapshot',
@@ -231,13 +567,13 @@ def plot_soundspeed_distribution(path, snapshot_numbers, snapshot_base_name ='sn
     # Process each snapshot
     for num in snapshot_numbers:
         snapshot_path = os.path.join(path, f"{snapshot_base_name}_{num:03}.hdf5")
-        boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path)
+        boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = ckit.read_snapshot(snapshot_path)
         
         if sample_size is not None:
             random_indices = np.random.choice(len(U), min(sample_size, len(U)), replace=False)
             U = U[random_indices]
 
-        soundspeed = calc_soundSpeed(U)
+        soundspeed = ckit.calc_soundSpeed(U)
         Cs_mean = np.mean(soundspeed)
         Cs_median = np.median(soundspeed)
         Cs_means.append(Cs_mean)
@@ -266,12 +602,6 @@ def plot_soundspeed_distribution(path, snapshot_numbers, snapshot_base_name ='sn
         ax1.plot(mean, redshift, 'o', color= 'dimgrey')
         ax1.text(median + 7, redshift + 0.2, f'$\widetilde{{c}}_s = {median:.2f}$ km/s' + ', ' + f'$\overline{{c}}_s = {mean:.2f}$ km/s', color='black')
 
-    # # Fit and plot polynomial line for the mean
-    # coef = np.polyfit(scale_factors, Cs_means, 1)
-    # poly1d_fn = np.poly1d(coef)
-    # polynomial_str = f"Best linear fit: $\overline{{c}}_s = {coef[0]:.2f}a + {coef[1]:.2f}$"
-    # ax1.text(0.65, 0.05, polynomial_str, transform=ax1.transAxes)
-
     # Connect median points with a line
     ax1.plot(Cs_medians, redshifts, color= 'k', ls= ':', lw = '2', label='Median Trend Line')
     ax1.plot(Cs_means, redshifts, color= 'dimgrey', ls= '-', lw = '2', label='Mean Trend Line')
@@ -283,10 +613,9 @@ def plot_soundspeed_distribution(path, snapshot_numbers, snapshot_base_name ='sn
     # Adding the formatted sample size and simulation details to the plot
     sample_size_formatted = f"{sample_size:,}".replace(',', ' ')  # Format with space as thousand separator
     ax1.text(0.4, 0.03, f'Plotted sample of size {sample_size_formatted} of simulation {simulation_details}', 
-             transform=ax1.transAxes, fontsize=10)#, ha='right', va='bottom')
+             transform=ax1.transAxes, fontsize=10)
 
     ax1.legend()
-    # Create a secondary y-axis to show the scale factor
     ax2 = ax1.twinx()
     ax2.set_ylim(ax1.get_ylim())  # Ensure the new y-axis shares the same scale
     ax2.set_yticks(redshifts)
@@ -295,83 +624,24 @@ def plot_soundspeed_distribution(path, snapshot_numbers, snapshot_base_name ='sn
 
     plt.show()
 
-def plot_median_soundspeed_with_polynomial_fit(path, snapshot_numbers, max_degree=5, a_0=0.1):
+def power_ratio(f_snap):
     """
-    Plots the median sound speed against the scale factor from snapshot files and fits a piecewise polynomial to the data.
-
-    This function reads internal energy data from a series of snapshot files, calculates the sound speed, 
-    and plots the median sound speed as a function of the scale factor. It also fits a piecewise polynomial 
-    to the data and displays the fitted function.
-
-    Args:
-        path (str): The base path containing the snapshot files.
-        snapshot_numbers (list of int): List of snapshot numbers to be processed.
-        max_degree (int, optional): Maximum degree of the polynomial fit. Default is 5.
-        a_0 (float, optional): Scale factor threshold for the piecewise function. Default is 0.1.
-
-    Example:
-        plot_median_soundspeed_with_polynomial_fit(
-            path='/gpfs/data/fs72085/mfo/CAMELS/CV0',
-            snapshot_numbers=[14, 18, 24, 28, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90],
-            max_degree=5,
-            a_0=0.1
-        )
+    Processes a snapshot file to compute and plot power spectrum ratios.
     """
-    medians = []
-    scale_factors = []
+    data = h5py.File(f_snap, 'r')
+    BoxSize = data['Header'].attrs['BoxSize'] / 1e3  # Mpc/h
+    Masses = data['Header'].attrs['MassTable'] * 1e10  # Msun/h
 
-    for num in snapshot_numbers:
-        snapshot_path = os.path.join(path, f'snapshot_{num:03}.hdf5')
-        with h5py.File(snapshot_path, 'r') as file:
-            U = file['PartType0/InternalEnergy'][:]
-            scale_factor = file['Header'].attrs['Time']
-            soundspeed = np.sqrt(5/3 * (5/3 - 1.0) * U)
-            median_cs = np.median(soundspeed)
-            medians.append(median_cs)
-            scale_factors.append(scale_factor)
+    # Read baryon (gas) and CDM particles
+    pos_baryons, mass_baryons = read_particles(data, 0, Masses)  # Assuming gas for baryons
+    pos_dm, mass_dm = read_particles(data, 1, Masses)  # CDM
 
-    scale_factors = np.array(scale_factors)
-    medians = np.array(medians)
+    # Compute power spectra
+    k_baryon, Pk_baryon = compute_power_spectrum(pos_baryons, mass_baryons, BoxSize)
+    k_dm, Pk_dm = compute_power_spectrum(pos_dm, mass_dm, BoxSize)
 
-    # Polynomial fitting
-    model = make_pipeline(PolynomialFeatures(max_degree), LinearRegression())
-    model.fit(scale_factors[:, np.newaxis], medians)
-    coeffs = model.named_steps['linearregression'].coef_
-    coeffs = np.round(coeffs, 2)  # Ensure continuity
-    intercept = model.named_steps['linearregression'].intercept_
-    intercept = np.round(intercept, 2)
-
-    # Find value at a_0
-    cs_a0 = intercept
-    for i, coef in enumerate(coeffs[1:], 1):
-        cs_a0 += coef * a_0**i
-
-    # Plot results
-    plt.figure(figsize=(10, 6))
-    plt.plot(scale_factors, medians, 'o', label='Median Data')
-    plt.plot(
-        np.linspace(a_0, max(scale_factors), 400), 
-        [intercept + sum(coef * a**i for i, coef in enumerate(coeffs[1:], 1)) for a in np.linspace(a_0, max(scale_factors), 400)], 
-        c='green', ls='-', label=f'Piecewise Polynomial (Degree {max_degree})'
-    )
-    plt.axvline(x=a_0, color='grey', linestyle='--', label=f'$a_0 = {a_0}$')
-    plt.axhline(y=cs_a0, color='grey', linestyle='--', label=f'$c_{{s,a_0}} = {cs_a0:.3f}$')
-    plt.hlines(y=cs_a0, xmin=0, xmax=a_0, colors='green', linestyles='-')
-    plt.title('Median Sound Speed vs. Scale Factor')
-    plt.xlabel('Scale Factor (a)')
-    plt.ylabel('Median Sound Speed (km/s)')
-    plt.legend()
-    plt.xlim(0)
-    plt.grid(True)
-    plt.show()
-
-    # Print the piecewise function equation
-    piecewise_eq = f"cs(a) = {{ {cs_a0:.2f} if a < {a_0} else {intercept:.2f}"
-    for i, coef in enumerate(coeffs[1:], 1):
-        piecewise_eq += f" + {coef:.2f}*a^{i}"
-    piecewise_eq += "}"
-    print("Piecewise Function Equation:")
-    print(piecewise_eq)
+    # Plot the ratio
+    plot_power_spectrum_ratio(k_baryon, Pk_baryon, k_dm, Pk_dm)
 
 def preview(path, snapshot_numbers, quantity, snapshot_base_name= 'snapshot', unit_scale='kpc'):
     """
@@ -416,7 +686,7 @@ def preview(path, snapshot_numbers, quantity, snapshot_base_name= 'snapshot', un
         boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path, unit_scale)
 
         if quantity == 'gas_temperature':
-            T = temperature(U, ne)  # Calculate temperature
+            T = calc_temperature(U, ne)  # Calculate temperature
             quantity_g = T
             colorbar_label = "T [K]"
         else:  # Assuming 'gas_density'
@@ -477,7 +747,7 @@ def preview_3d(path, snapshot_numbers, quantity, subset_size, snapshot_base_name
 
         if quantity == 'gas_temperature':
             title = f'Snapshot {snapshot_number} at z={redshift:.2f}'
-            quantity_g = temperature(U, ne)  # Calculate temperature
+            quantity_g = calc_temperature(U, ne)  # Calculate temperature
             colorbar_title = "Temperature [K]"
             colormap = 'Hot'
         else:  # Assuming 'gas_density'
@@ -521,100 +791,51 @@ def preview_3d(path, snapshot_numbers, quantity, subset_size, snapshot_base_name
         filename = f"{title}_{quantity}.html".replace(" ", "_")
         fig.write_html(filename)
 
-def read_snapshot(snapshot_path, unit_scale='kpc'):
+def preview_phase_diagram(path, snapshot_numbers, quantity, snapshot_base_name='snapshot', unit_scale='kpc'):
     """
-    Reads snapshot data from a HDF5 file, converting units if required.
-    
-    Args:
-        snapshot_path (str): Path to the HDF5 snapshot file.
-        unit_scale (str): Unit scale for length ('kpc' or 'mpc') of your snapshot file, default is 'mpc'.
-    
-    Returns:
-        tuple: Contains the box size, redshift, scale_factor, positions, densities, internal energies,
-               and electron abundances (if available) adjusted to the desired unit scale.
-               
-    System of units for default option (mpc):
-    %---- System of units
-    UnitLength_in_cm                      3.085678e24    %  1.0 Mpc
-    UnitMass_in_g                         1.989e43       %  1.0e10 solar masses
-    UnitVelocity_in_cm_per_s              1e5            %  1 km/sec
-    """
-    factor = 1e-3 if unit_scale == 'kpc' else 1  # Convert from kpc to Mpc if needed i.e for CAMELS
-    density_factor = factor**3  if unit_scale == 'kpc' else 1 # Adjust density for the change in volume unit
-
-    with h5py.File(snapshot_path, 'r') as f:
-        boxSize = f['Header'].attrs['BoxSize'] * factor
-        redshift = f['Header'].attrs['Redshift']
-        scale_factor = f['Header'].attrs[u'Time']
-        pos_g = f['PartType0/Coordinates'][:] * factor
-        pos_g = pos_g.astype(np.float32)
-        rho_g = f['PartType0/Density'][:] / density_factor
-        U = f['PartType0/InternalEnergy'][:]
-        ne = f['PartType0/ElectronAbundance'][:] if 'PartType0/ElectronAbundance' in f else np.zeros_like(U)
-
-    return boxSize, redshift, scale_factor, pos_g, rho_g, U, ne
-
-def save_plot(fig, path, quantity):
-    """
-    Saves the figure to a file with an appropriate filename.
+    Generates phase diagrams for density vs temperature, pressure, or entropy from multiple snapshots.
 
     Args:
-        fig (matplotlib.figure.Figure): The figure to be saved.
-        path (str): The base path where the plot will be saved.
-        quantity (str): Quantity name (e.g., 'gas_density' or 'gas_temperature').
+        path (str): The base path containing the snapshot files.
+        snapshot_numbers (list of int): List of snapshot numbers to plot.
+        quantity (str): Quantity to plot ('temperature', 'pressure', 'entropy').
+        snapshot_base_name (str): Base name of the snapshot files.
+        unit_scale (str): Unit scale ('kpc' or 'mpc') for interpreting the data.
     """
-    path_last_parts = os.path.normpath(path).split(os.path.sep)[-2:]
-    filename = "_".join(path_last_parts) + f'_{quantity}.png'
-    plots_dir = os.path.join(path, 'plots')
-    
-    if not os.path.exists(plots_dir):
-        os.makedirs(plots_dir)
+    fig, axes = plt.subplots(1, len(snapshot_numbers), figsize=(7 * len(snapshot_numbers), 5))
 
-    file_path = os.path.join(plots_dir, filename)
-    fig.savefig(file_path)
+    if len(snapshot_numbers) == 1:
+        axes = [axes]  # Ensure axes is always a list
+
+    for ax, snapshot_number in zip(axes, snapshot_numbers):
+        # Load the snapshot data
+        snapshot_path = f"{path}/{snapshot_base_name}_{snapshot_number:03}.hdf5"
+        boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path, unit_scale)
+
+        # Compute the requested quantity
+        if quantity == 'temperature':
+            quantity_data = calc_temperature(U, ne)
+            ylabel = r'Temperature $T \, [K]$'
+            cmap = 'Reds'
+        elif quantity == 'pressure':
+            quantity_data = calc_pressure(U, rho_g)
+            ylabel = r'Pressure $P \, [(M_\odot h^{-1}) (km/s)^2 (kpc h^{-1})^{-3}]$'
+            cmap = 'Greens'
+        elif quantity == 'entropy':
+            quantity_data = calc_entropy(U, rho_g)
+            ylabel = r'Entropy $S \, [(M_\odot h^{-1}) (km/s)^2 (kpc h^{-1})^{-3}]$'
+            cmap = 'Blues'
+        else:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        xlabel = r'Density $\rho \, [10^{10} M_\odot h^{-1}/(kpc h^{-1})^3]$'
+        title = f'z={round(redshift, 2)}'
+
+        # Plot the phase diagram
+        plot_phase_diagram(ax, rho_g, quantity_data, title, xlabel, ylabel, cmap=cmap)
+
+    plt.tight_layout()
     plt.show()
-
-def temperature(U, ne):
-    """
-    Computes the temperature of particles in a snapshot.
-
-    This function calculates the temperature of particles in a snapshot based on their internal energy,
-    electron abundance, and the helium mass fraction. It uses constants for the Boltzmann constant
-    and proton mass.
-
-    Args:
-        U (numpy.ndarray): Particle internal energy in (km/s)^2.
-        ne (numpy.ndarray): Electron abundance.
-
-    Returns:
-        numpy.ndarray: An array of temperatures for each particle in the snapshot.
-    """
-    BOLTZMANN = 1.38065e-16  # erg/K - NIST 2010
-    PROTONMASS = 1.67262178e-24  # gram - NIST 2010
-
-    yhelium = 0.0789  # Helium mass fraction
-    T = U * (1.0 + 4.0 * yhelium) / (1.0 + yhelium + ne) * 1e10 * (2.0 / 3.0)
-    T *= (PROTONMASS / BOLTZMANN)  # Convert to Kelvin
-    return T
-
-def validate_quantity(quantity):
-    """
-    Validates the provided quantity against allowed values.
-
-    Args:
-        quantity (str): The quantity to validate.
-
-    Returns:
-        str: The validated quantity.
-    """
-    valid_quantities = ['gas_temperature', 'gas_density']
-    if quantity not in valid_quantities:
-        print("You have entered an invalid quantity. Please choose from 'gas_temperature' or 'gas_density'.")
-        quantity = input("Enter your choice (gas_temperature/gas_density): ").strip()
-        if quantity not in valid_quantities:
-            print("Invalid input received. Defaulting to 'gas_density'.")
-            quantity = 'gas_density'
-    return quantity
 
 ###############################################################################################
 

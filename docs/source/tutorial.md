@@ -42,7 +42,7 @@ ckit.preview(path, snapshot_numbers, 'gas_density')
 ckit.preview(path, snapshot_numbers, 'gas_temperature')
 ```
 
-Or to `preview_3d` for interactive tree dimensional view.
+For interactive 3D visualization, you can use the `preview_3d()` function.
 
 ```
 subset_size = 300000
@@ -57,12 +57,26 @@ ckit.preview_3d(path, snapshot_numbers, 'gas_temperature', subset_size)
 ```
 - [View the 3D Temperature Plot](_static/Snapshot_90_at_z=0.00_gas_temperature.html)
 
-## Soundspeed
+## Soundspeed & Internal Energy
+
+You can visualize the distribution of sound speed internal energy as a raincloud plot.
 
 ```{code-cell}
 path = '.'
 snapshot_numbers = [90]
 ckit.plot_soundspeed_distribution(path, snapshot_numbers, bw=0.6, x_limits=(0, 300), sample_size=10000)
+ckit.plot_internalenergy_distribution(path, 'snapshot', snapshot_numbers, bw=1, x_limits=(0, 100000), sample_size=50000)
+```
+
+In addition to visualizing these distributions, you can also fit a polynomial to the median values of the sound speed and internal energy across multiple snapshots using the functions `plot_median_soundspeed_with_polynomial_fit()` and `plot_median_internalenergy_with_polynomial_fit()`.
+
+Note: Polynomial fits require multiple snapshot files across different redshifts to capture time evolution. As only a single snapshot is downloaded here, this functionality is not demonstrated. If you have multiple snapshots, you can use the functions like this:
+
+If you have multiple snapshots, you can use these functions as follows:
+
+```
+ckit.plot_median_soundspeed_with_polynomial_fit(path, snapshot_numbers, max_degree=5)
+ckit.plot_median_internalenergy_with_polynomial_fit(path, snapshot_numbers, max_degree=5)
 ```
 
 ## Power Spectra
@@ -71,7 +85,13 @@ As power spectra analysis uses Pylians, you might experience difficulties on mac
 
 ```{code-cell}
 f_snap = './snapshot_090.hdf5'
-snapshot_numbers = [90]
 ckit.power_ratio(f_snap)
+```
 
 ## Phase diagrams
+
+```{code-cell}
+ckit.preview_phase_diagram(path, snapshot_numbers, quantity='temperature')
+ckit.preview_phase_diagram(path, snapshot_numbers, quantity='pressure')
+ckit.preview_phase_diagram(path, snapshot_numbers, quantity='entropy')
+```

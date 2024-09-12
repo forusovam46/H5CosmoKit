@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
-from H5CosmoKit import temperature
+from H5CosmoKit import calc_temperature  # Update to use the new function name
 
-def test_temperature_basic():
+def test_calc_temperature_basic():
     """
     Basic test with simple values
     """
@@ -10,9 +10,9 @@ def test_temperature_basic():
     ne = np.array([0.5, 1.0, 1.5])
 
     expected_output = np.array([67.29644634, 102.22171256, 123.60427987])  
-    np.testing.assert_allclose(temperature(U, ne), expected_output)
+    np.testing.assert_allclose(calc_temperature(U, ne), expected_output)
 
-def test_temperature_with_zeros():
+def test_calc_temperature_with_zeros():
     """    
     Test with zero values to ensure no division by zero or other errors
     """
@@ -20,9 +20,9 @@ def test_temperature_with_zeros():
     ne = np.array([0, 0, 0])
 
     expected_output = np.array([0, 0, 0])
-    np.testing.assert_allclose(temperature(U, ne), expected_output)
+    np.testing.assert_allclose(calc_temperature(U, ne), expected_output)
 
-def test_temperature_negative_values():
+def test_calc_temperature_negative_values():
     """
     Test with negative values if applicable
     """
@@ -30,9 +30,9 @@ def test_temperature_negative_values():
     ne = np.array([-0.5, -1, -1.5])
 
     expected_output = np.array([-183.545274, -2693.39313357, 756.97714879])
-    np.testing.assert_allclose(temperature(U, ne), expected_output)
+    np.testing.assert_allclose(calc_temperature(U, ne), expected_output)
 
-def test_temperature_invalid_input():
+def test_calc_temperature_invalid_input():
     """
     Test with invalid input types
     """
@@ -40,4 +40,4 @@ def test_temperature_invalid_input():
     ne = "invalid input"
 
     with pytest.raises(TypeError):
-        temperature(U, ne)
+        calc_temperature(U, ne)
