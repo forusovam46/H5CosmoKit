@@ -204,8 +204,8 @@ def plot_phase_diagram(ax, rho_g, quantity, title, xlabel, ylabel, bins=100, cma
     
     # Plot the phase diagram
     h = ax.hist2d(log_rho_g, log_quantity, bins=bins, norm=LogNorm(), cmap=cmap)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel(f'Log {xlabel}')  # Update the label to indicate the logarithmic scale
+    ax.set_ylabel(f'Log {ylabel}')  # Update the label to indicate the logarithmic scale
     ax.set_title(title)
     plt.colorbar(h[3], ax=ax)
 
@@ -340,7 +340,7 @@ def plot_internalenergy_distribution(path, snapshot_base_name, snapshot_numbers,
 
     for num in snapshot_numbers:
         snapshot_path = os.path.join(path, f"{snapshot_base_name}_{num:03}.hdf5")
-        boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = ckit.read_snapshot(snapshot_path)
+        boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path)
         
         if sample_size is not None:
             random_indices = np.random.choice(len(U), min(sample_size, len(U)), replace=False)
@@ -567,13 +567,13 @@ def plot_soundspeed_distribution(path, snapshot_base_name, snapshot_numbers, bw=
     # Process each snapshot
     for num in snapshot_numbers:
         snapshot_path = os.path.join(path, f"{snapshot_base_name}_{num:03}.hdf5")
-        boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = ckit.read_snapshot(snapshot_path)
+        boxSize, redshift, scale_factor, pos_g, rho_g, U, ne = read_snapshot(snapshot_path)
         
         if sample_size is not None:
             random_indices = np.random.choice(len(U), min(sample_size, len(U)), replace=False)
             U = U[random_indices]
 
-        soundspeed = ckit.calc_soundSpeed(U)
+        soundspeed = calc_soundSpeed(U)
         Cs_mean = np.mean(soundspeed)
         Cs_median = np.median(soundspeed)
         Cs_means.append(Cs_mean)
