@@ -69,7 +69,7 @@ ckit.plot_internalenergy_distribution(
 )
 ```
 
-![Raincloud Plot](raincloud.png)
+![Raincloud Plot](./_static/raincloud.png)
 
 In addition to visualizing these distributions, you can also fit a polynomial to the median values of the sound speed or internal energy across multiple snapshots using the functions `plot_median_soundspeed_with_polynomial_fit()` and `plot_median_internalenergy_with_polynomial_fit()`.
 
@@ -77,7 +77,7 @@ In addition to visualizing these distributions, you can also fit a polynomial to
 ckit.plot_median_internalenergy_with_polynomial_fit(path, snapshot_numbers)
 ```
 
-![Polynomial Fit](fit.png)
+![Polynomial Fit](./_static/fit.png)
 
 
 ## Power Spectra
